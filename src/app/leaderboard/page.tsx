@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import NavBar from "@/components/NavBar";
 import Link from "next/link";
 import { PageHeader, SectionTitle, ProgressBar, Badge } from "@/components/ui";
 
@@ -119,7 +118,6 @@ export default async function LeaderboardPage() {
 
   return (
     <div className="flex-1">
-      <NavBar />
       <div className="mx-auto max-w-3xl px-6 py-10">
         <PageHeader
           title="Leaderboard"

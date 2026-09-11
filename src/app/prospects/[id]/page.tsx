@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import NavBar from "@/components/NavBar";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { updateProspectStage, convertProspectToClient } from "../actions";
@@ -25,7 +24,6 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
 
   return (
     <div className="flex-1">
-      <NavBar />
       <div className="mx-auto max-w-xl px-6 py-10">
         <PageHeader title={prospect.company_name} subtitle={`${prospect.contact_name ?? ""} · ${prospect.contact_email ?? ""}`} />
 

@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import NavBar from "@/components/NavBar";
 import { ensureConnectionRows, checkResendConnection, updateConnectionStatus } from "./actions";
 import { PageHeader, Card, Badge, Button, Select, Input } from "@/components/ui";
 
@@ -22,7 +21,6 @@ export default async function ConnectionsPage() {
 
   return (
     <div className="flex-1">
-      <NavBar />
       <div className="mx-auto max-w-2xl px-6 py-10">
         <PageHeader
           title="Connections"

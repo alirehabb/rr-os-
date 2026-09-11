@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import NavBar from "@/components/NavBar";
 import { createRep } from "./actions";
 import { PageHeader, LinkCard, Badge, Button, Input } from "@/components/ui";
 
@@ -22,13 +21,12 @@ export default async function RepsPage() {
   const supabase = await createClient();
   const { data: reps } = await supabase
     .from("reps")
-    .select("id, full_name, email, recruiting_status, capabilities")
+    .select("id, full_name, email, recruiting_status, capabilities, is_demo")
     .eq("is_benchmark", false)
     .order("created_at", { ascending: false });
 
   return (
     <div className="flex-1">
-      <NavBar />
       <div className="mx-auto max-w-5xl px-6 py-10">
         <PageHeader title="Sales Talent" />
 
@@ -62,7 +60,10 @@ export default async function RepsPage() {
                     {r.email} · {r.capabilities.join(", ") || "no role set"}
                   </p>
                 </div>
-                <Badge tone={STATUS_TONE[r.recruiting_status]}>{r.recruiting_status.replace(/_/g, " ")}</Badge>
+                <div className="flex items-center gap-2">
+                  {r.is_demo && <Badge tone="accent">Demo</Badge>}
+                  <Badge tone={STATUS_TONE[r.recruiting_status]}>{r.recruiting_status.replace(/_/g, " ")}</Badge>
+                </div>
               </LinkCard>
             </li>
           ))}

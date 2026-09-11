@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import NavBar from "@/components/NavBar";
 import { notFound } from "next/navigation";
 import { generateReport, sendReport } from "./actions";
 import type { ClientReportSnapshot } from "@/lib/clientReport";
@@ -31,7 +30,6 @@ export default async function ClientReportPage({
 
   return (
     <div className="flex-1">
-      <NavBar />
       <div className="mx-auto max-w-2xl px-6 py-10">
         <PageHeader title={`${client.name} — Report`} />
 

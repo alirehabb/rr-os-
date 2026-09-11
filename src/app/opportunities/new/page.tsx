@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import NavBar from "@/components/NavBar";
 import { createOpportunity } from "../actions";
 import { PageHeader, Field, Input, Select, Button } from "@/components/ui";
 
@@ -14,7 +13,6 @@ export default async function NewOpportunityPage({
 
   return (
     <div className="flex-1">
-      <NavBar />
       <div className="mx-auto max-w-lg px-6 py-10">
         <PageHeader title="Log a booked call" />
         <form action={createOpportunity} className="space-y-4 rounded-2xl border border-border bg-surface p-6 shadow-sm shadow-black/[0.03]">

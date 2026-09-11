@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import NavBar from "@/components/NavBar";
 import { PageHeader, LinkCard, Badge, EmptyState } from "@/components/ui";
 
 const STAGE_TONE = {
@@ -15,7 +14,7 @@ export default async function OpportunitiesPage() {
   const [{ data: opportunities }, { data: clients }] = await Promise.all([
     supabase
       .from("opportunities")
-      .select("id, prospect_name, stage, value, client_id")
+      .select("id, prospect_name, stage, value, client_id, is_demo")
       .order("first_booked_at", { ascending: false }),
     supabase.from("clients").select("id, name"),
   ]);
@@ -23,7 +22,6 @@ export default async function OpportunitiesPage() {
 
   return (
     <div className="flex-1">
-      <NavBar />
       <div className="mx-auto max-w-5xl px-6 py-10">
         <PageHeader title="Opportunities" />
         <ul className="space-y-2">
@@ -34,7 +32,10 @@ export default async function OpportunitiesPage() {
                   <p className="font-medium text-foreground">{o.prospect_name}</p>
                   <p className="text-sm text-muted">{clientNameById.get(o.client_id) ?? "Unknown client"}</p>
                 </div>
-                <Badge tone={STAGE_TONE[o.stage]}>{o.stage.replace("_", " ")}</Badge>
+                <div className="flex items-center gap-2">
+                  {o.is_demo && <Badge tone="accent">Demo</Badge>}
+                  <Badge tone={STAGE_TONE[o.stage]}>{o.stage.replace("_", " ")}</Badge>
+                </div>
               </LinkCard>
             </li>
           ))}

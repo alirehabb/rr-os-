@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import NavBar from "@/components/NavBar";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageHeader, SectionTitle, StatTile, Card, Badge, EmptyState } from "@/components/ui";
@@ -23,7 +22,6 @@ export default async function MyWorkspacePage() {
   if (!rep) {
     return (
       <div className="flex-1">
-        <NavBar />
         <div className="mx-auto max-w-lg px-6 py-10">
           <EmptyState
             title="No rep profile linked"
@@ -85,7 +83,6 @@ export default async function MyWorkspacePage() {
 
   return (
     <div className="flex-1">
-      <NavBar />
       <div className="mx-auto max-w-3xl px-6 py-10">
         <PageHeader title={`${rep.full_name}'s Workspace`} subtitle={rep.capabilities.join(" · ")} />
 

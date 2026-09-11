@@ -1,10 +1,27 @@
 import { getPulseTotals, getCommandQueue, getClientClocks } from "@/lib/queries";
+import { getClientPulse, getLiveFeed, getToday } from "@/lib/homeExtras";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import NavBar from "@/components/NavBar";
 import { completeActionItem, pinActionItem } from "./actions";
 import Link from "next/link";
-import { PageHeader, SectionTitle, StatTile, Card, EmptyState, Badge, Button } from "@/components/ui";
+import {
+  DollarSign,
+  ArrowUpRight,
+  BarChart3,
+  Clock,
+  Users2,
+  CheckCircle2,
+  Circle,
+  PhoneCall,
+  UserPlus,
+  Building2,
+  PlusCircle,
+  ClipboardList,
+  Award,
+  FolderOpen,
+  TrendingUp,
+} from "lucide-react";
+import { Card, Badge, Button, ProgressBar } from "@/components/ui";
 
 function money(n: number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -17,103 +34,309 @@ export default async function Home() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [pulse, queue, clocks] = await Promise.all([getPulseTotals(), getCommandQueue(), getClientClocks()]);
+  const [{ data: demo }, { data: profile }, { data: targets }] = await Promise.all([
+    supabase.from("demo_mode").select("enabled").limit(1).single(),
+    supabase.from("profiles").select("full_name").eq("id", user.id).single(),
+    supabase.from("founder_targets").select("*").limit(1).single(),
+  ]);
+  const demoMode = !!demo?.enabled;
+  const firstName = (profile?.full_name ?? "there").split(" ")[0];
+
+  const [pulse, queue, clocks, clientPulse, feed, today] = await Promise.all([
+    getPulseTotals(demoMode),
+    getCommandQueue(demoMode),
+    getClientClocks(demoMode),
+    getClientPulse(demoMode),
+    getLiveFeed(demoMode),
+    getToday(demoMode),
+  ]);
+
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthProgress = targets?.monthly_revenue_target ? Math.min(100, (pulse.rrEarned / targets.monthly_revenue_target) * 100) : null;
+  const daysLeftInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate();
+
+  const overdue = queue.filter((q) => q.deadline_at && new Date(q.deadline_at) < now);
+  const contextLine =
+    overdue.length > 0
+      ? `${overdue.length} item${overdue.length > 1 ? "s" : ""} in your queue ${overdue.length > 1 ? "are" : "is"} overdue.`
+      : queue.length > 0
+        ? `${queue.length} item${queue.length > 1 ? "s" : ""} waiting on you. Nothing overdue.`
+        : "Nothing urgent. You're clear.";
 
   return (
-    <div className="flex-1">
-      <NavBar />
-      <div className="mx-auto w-full max-w-5xl px-6 py-10">
-        <PageHeader title="RR Pulse" subtitle="Where is the money. What is happening. What needs you." />
-
-        <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatTile label="Cash collected" value={money(pulse.cashCollected)} tone="success" />
-          <StatTile label="RR outstanding receivable" value={money(pulse.rrOutstanding)} tone={pulse.rrOutstanding > 0 ? "warning" : "neutral"} />
-          <StatTile label="Active pipeline" value={money(pulse.activePipelineValue)} tone="accent" />
-          <StatTile label="Close rate" value={pulse.closeRate === null ? "—" : `${Math.round(pulse.closeRate * 100)}%`} />
-        </section>
-
-        <section className="mt-10">
-          <SectionTitle>Command Queue</SectionTitle>
-          {queue.length === 0 ? (
-            <EmptyState title="Nothing open" hint="Queue items appear here as clients, opportunities, and approvals need you." />
-          ) : (
-            <ul className="space-y-2">
-              {queue.map((item) => (
-                <li
-                  key={item.id}
-                  className="flex items-start justify-between gap-4 rounded-2xl border border-border bg-surface p-4 shadow-sm shadow-black/[0.03] transition-colors rr-fade-up"
-                >
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-1.5 font-medium text-foreground">
-                      {item.pinned && <span className="text-warning">★</span>}
-                      {item.client_id ? (
-                        <Link href={`/clients/${item.client_id}`} className="hover:underline">
-                          {item.title}
-                        </Link>
-                      ) : (
-                        item.title
-                      )}
-                    </p>
-                    <p className="mt-0.5 text-sm text-muted">{item.reason}</p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-3">
-                    <div className="text-right text-sm">
-                      <p className={item.money_impact === null ? "text-faint" : "font-medium text-foreground"}>
-                        {item.money_impact === null ? "impact unknown" : money(item.money_impact)}
-                      </p>
-                      <p className="text-faint">{item.deadline_at ? new Date(item.deadline_at).toLocaleDateString() : "no deadline"}</p>
-                    </div>
-                    <div className="flex gap-1">
-                      <form action={pinActionItem}>
-                        <input type="hidden" name="id" value={item.id} />
-                        <input type="hidden" name="pinned" value={String(item.pinned)} />
-                        <Button variant="ghost" className="!px-2 !py-1 text-xs">
-                          {item.pinned ? "Unpin" : "Pin"}
-                        </Button>
-                      </form>
-                      <form action={completeActionItem}>
-                        <input type="hidden" name="id" value={item.id} />
-                        <Button variant="secondary" className="!px-2 !py-1 text-xs">
-                          Done
-                        </Button>
-                      </form>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <section className="mt-10">
-          <SectionTitle>Client fulfillment clocks</SectionTitle>
-          {clocks.length === 0 ? (
-            <EmptyState title="No clients yet" />
-          ) : (
-            <ul className="space-y-2">
-              {clocks.map((c) => (
-                <li key={c.client_id}>
-                  <Card className="flex items-center justify-between">
-                    <Link href={`/clients/${c.client_id}`} className="font-medium hover:underline">
-                      {c.name}
-                    </Link>
-                    <div className="flex gap-2">
-                      <ClockBadge label="Fulfillment" done={!!c.fulfillment_completed_at} breached={!!c.fulfillment_breached} />
-                      <ClockBadge label="Go-live" done={!!c.go_live_completed_at} breached={!!c.go_live_breached} />
-                    </div>
-                  </Card>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+    <div className="mx-auto max-w-[1400px] px-6 py-6">
+      <div className="mb-6 flex items-center justify-between rr-fade-up">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            {greeting}, {firstName}
+          </h1>
+          <p className="mt-0.5 text-sm text-muted">Here&apos;s what&apos;s happening with Rehab Revenue today.</p>
+        </div>
       </div>
+
+      {/* RR Pulse */}
+      <section className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <PulseTile icon={DollarSign} label="Cash Collected" value={money(pulse.cashCollected)} tone="success" />
+        <PulseTile icon={ArrowUpRight} label="RR Outstanding" value={money(pulse.rrOutstanding)} tone={pulse.rrOutstanding > 0 ? "warning" : "neutral"} />
+        <PulseTile icon={BarChart3} label="Active Pipeline" value={money(pulse.activePipelineValue)} tone="accent" />
+        <PulseTile icon={Clock} label="Projected RR Revenue" value={money(pulse.projectedRRRevenue)} tone="accent" />
+        <PulseTile icon={TrendingUp} label="Close Rate" value={pulse.closeRate === null ? "—" : `${Math.round(pulse.closeRate * 100)}%`} tone="neutral" />
+        <PulseTile icon={Users2} label="Calls Booked" value={String(pulse.callsBookedThisMonth)} tone="neutral" />
+      </section>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_1fr_1fr]">
+        {/* Command Queue */}
+        <Card className="!p-0">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-foreground">Command Queue</h2>
+              {queue.length > 0 && <Badge tone="danger">{queue.length}</Badge>}
+            </div>
+            <Link href="/brief" className="text-xs text-faint hover:text-muted">
+              View all →
+            </Link>
+          </div>
+          <ul className="divide-y divide-border">
+            {queue.slice(0, 7).map((item) => (
+              <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {item.pinned && <span className="mr-1 text-warning">★</span>}
+                    {item.title}
+                  </p>
+                  <p className="truncate text-xs text-faint">{item.reason}</p>
+                </div>
+                {item.client_id && (
+                  <Link href={`/clients/${item.client_id}`} className="shrink-0 rounded-full bg-surface-subtle px-2 py-1 text-xs text-muted hover:text-foreground">
+                    Client
+                  </Link>
+                )}
+                <span className="shrink-0 text-xs text-faint">{item.deadline_at ? new Date(item.deadline_at).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "—"}</span>
+                <form action={completeActionItem} className="shrink-0">
+                  <input type="hidden" name="id" value={item.id} />
+                  <Button variant="secondary" className="!px-2.5 !py-1 text-xs">
+                    Open
+                  </Button>
+                </form>
+              </li>
+            ))}
+            {queue.length === 0 && <li className="px-4 py-8 text-center text-sm text-faint">Nothing open. Clear queue.</li>}
+          </ul>
+        </Card>
+
+        {/* Today */}
+        <Card className="!p-0">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-foreground">Today</h2>
+              {today.length > 0 && <Badge>{today.length}</Badge>}
+            </div>
+          </div>
+          <ol className="relative space-y-0 px-4 py-3">
+            {today.map((t, i) => (
+              <li key={t.id} className="relative flex gap-3 pb-4 last:pb-0">
+                <div className="flex flex-col items-center">
+                  {t.done ? <CheckCircle2 size={16} className="text-success" /> : <Circle size={16} className="text-faint" />}
+                  {i < today.length - 1 && <div className="mt-1 w-px flex-1 bg-border" />}
+                </div>
+                <div className="min-w-0 pb-1">
+                  <p className="text-xs text-faint">{new Date(t.time).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</p>
+                  <p className="text-sm font-medium text-foreground">{t.label}</p>
+                  <p className="truncate text-xs text-muted">{t.detail}</p>
+                </div>
+              </li>
+            ))}
+            {today.length === 0 && <li className="py-8 text-center text-sm text-faint">Nothing scheduled today.</li>}
+          </ol>
+        </Card>
+
+        {/* Founder Progress */}
+        <Card className="!p-0">
+          <div className="border-b border-border px-4 py-3">
+            <h2 className="text-sm font-semibold text-foreground">Founder Progress</h2>
+          </div>
+          <div className="p-4">
+            {targets?.monthly_revenue_target ? (
+              <>
+                <p className="text-xs text-faint">Monthly RR target</p>
+                <p className="mt-0.5 text-xl font-semibold text-foreground">{money(targets.monthly_revenue_target)}</p>
+                <div className="mt-2">
+                  <ProgressBar value={monthProgress ?? 0} tone="success" />
+                </div>
+                <p className="mt-1.5 text-xs text-muted">
+                  {money(pulse.rrEarned)} earned ({Math.round(monthProgress ?? 0)}%) · {daysLeftInMonth} days left
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-faint">
+                No target set.{" "}
+                <Link href="/settings/targets" className="text-accent underline">
+                  Configure one
+                </Link>
+                .
+              </p>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_1fr_1fr]">
+        {/* Client Pulse */}
+        <Card className="!p-0">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <h2 className="text-sm font-semibold text-foreground">Client Pulse</h2>
+            <Link href="/clients" className="text-xs text-faint hover:text-muted">
+              View all →
+            </Link>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-faint">
+                  <th className="px-4 py-2 font-medium">Client</th>
+                  <th className="px-2 py-2 font-medium">Status</th>
+                  <th className="px-2 py-2 font-medium">Opps</th>
+                  <th className="px-2 py-2 font-medium">Expected</th>
+                  <th className="px-2 py-2 font-medium">RR Rev</th>
+                  <th className="px-4 py-2 font-medium">Health</th>
+                </tr>
+              </thead>
+              <tbody>
+                {clientPulse.map((c) => (
+                  <tr key={c.id} className="border-t border-border">
+                    <td className="px-4 py-2">
+                      <Link href={`/clients/${c.id}`} className="font-medium text-foreground hover:underline">
+                        {c.name}
+                      </Link>
+                    </td>
+                    <td className="px-2 py-2">
+                      <Badge tone={c.lifecycleState === "active" ? "success" : c.lifecycleState === "paused" ? "warning" : "neutral"}>
+                        {c.lifecycleState}
+                      </Badge>
+                    </td>
+                    <td className="px-2 py-2 text-muted">{c.opportunityCount}</td>
+                    <td className="px-2 py-2 text-muted">{money(c.expectedRevenue)}</td>
+                    <td className="px-2 py-2 text-muted">{money(c.rrRevenue)}</td>
+                    <td className="px-4 py-2 w-28">
+                      <ProgressBar value={c.healthPct} tone={c.healthLabel === "good" ? "success" : c.healthLabel === "watch" ? "warning" : "danger"} />
+                    </td>
+                  </tr>
+                ))}
+                {clientPulse.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-faint">
+                      No clients yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+
+        {/* Live Feed */}
+        <Card className="!p-0">
+          <div className="border-b border-border px-4 py-3">
+            <h2 className="text-sm font-semibold text-foreground">Live Feed</h2>
+          </div>
+          <ul className="divide-y divide-border">
+            {feed.map((f) => (
+              <li key={f.id} className="flex items-center gap-3 px-4 py-2.5">
+                <FeedIcon kind={f.kind} />
+                <div className="min-w-0">
+                  <p className="truncate text-sm text-foreground">{f.label}</p>
+                  <p className="truncate text-xs text-faint">{f.detail}</p>
+                </div>
+                <span className="ml-auto shrink-0 text-xs text-faint">{timeAgo(f.at)}</span>
+              </li>
+            ))}
+            {feed.length === 0 && <li className="px-4 py-8 text-center text-sm text-faint">No activity yet.</li>}
+          </ul>
+        </Card>
+
+        {/* Quick Actions */}
+        <Card className="!p-0">
+          <div className="border-b border-border px-4 py-3">
+            <h2 className="text-sm font-semibold text-foreground">Quick Actions</h2>
+          </div>
+          <div className="grid grid-cols-1 gap-1.5 p-3">
+            <QuickAction href="/opportunities/new" icon={PhoneCall} label="Log a Call" />
+            <QuickAction href="/opportunities/new" icon={PlusCircle} label="Add Opportunity" />
+            <QuickAction href="/clients" icon={Building2} label="Add Client" />
+            <QuickAction href="/reps" icon={UserPlus} label="Review Talent" />
+            <QuickAction href="/documents" icon={FolderOpen} label="Create Document" />
+            <QuickAction href="/leaderboard" icon={Award} label="View Leaderboard" />
+            <QuickAction href="/opportunities" icon={ClipboardList} label="Open Pipeline" />
+          </div>
+        </Card>
+      </div>
+
+      {/* Context banner */}
+      <Card className="mt-4 flex items-center justify-between bg-surface-subtle">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-faint">Keep going</p>
+          <p className="mt-0.5 text-sm font-medium text-foreground">{contextLine}</p>
+        </div>
+        <p className="hidden text-sm italic text-faint sm:block">&ldquo;A calm operator always wins.&rdquo;</p>
+      </Card>
+    </div>
+  );
+
+  function PulseTile({ icon: Icon, label, value, tone }: { icon: typeof DollarSign; label: string; value: string; tone: "success" | "warning" | "accent" | "neutral" }) {
+    const toneClasses = {
+      success: "bg-success-bg text-success",
+      warning: "bg-warning-bg text-warning",
+      accent: "bg-accent/12 text-accent",
+      neutral: "bg-surface-subtle text-muted",
+    }[tone];
+    return (
+      <Card className="rr-fade-up">
+        <div className={`mb-2 flex h-7 w-7 items-center justify-center rounded-lg ${toneClasses}`}>
+          <Icon size={14} />
+        </div>
+        <p className="text-xs text-faint">{label}</p>
+        <p className="mt-0.5 text-lg font-semibold tabular-nums text-foreground">{value}</p>
+      </Card>
+    );
+  }
+}
+
+function QuickAction({ href, icon: Icon, label }: { href: string; icon: typeof PhoneCall; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center gap-2.5 rounded-xl border border-border bg-surface px-3 py-2 text-sm text-foreground transition-colors hover:border-accent/40 hover:bg-accent/5"
+    >
+      <Icon size={15} className="text-accent" />
+      {label}
+    </Link>
+  );
+}
+
+function FeedIcon({ kind }: { kind: "payment" | "call" | "client" | "rep" }) {
+  const map = {
+    payment: { Icon: DollarSign, cls: "bg-success-bg text-success" },
+    call: { Icon: PhoneCall, cls: "bg-accent/12 text-accent" },
+    client: { Icon: Building2, cls: "bg-warning-bg text-warning" },
+    rep: { Icon: UserPlus, cls: "bg-surface-subtle text-muted" },
+  }[kind];
+  return (
+    <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${map.cls}`}>
+      <map.Icon size={13} />
     </div>
   );
 }
 
-function ClockBadge({ label, done, breached }: { label: string; done: boolean; breached: boolean }) {
-  const tone = done ? "success" : breached ? "danger" : "warning";
-  const text = done ? "complete" : breached ? "breached" : "in progress";
-  return <Badge tone={tone}>{label}: {text}</Badge>;
+function timeAgo(iso: string) {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
 }

@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import NavBar from "@/components/NavBar";
 import NotesThread from "@/components/NotesThread";
 import { notFound } from "next/navigation";
 import { logCallOutcome, attachCallMedia } from "../actions";
@@ -38,7 +37,6 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
 
   return (
     <div className="flex-1">
-      <NavBar />
       <div className="mx-auto max-w-2xl px-6 py-10">
         <PageHeader
           title={opp.prospect_name}

@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import NavBar from "@/components/NavBar";
 import { notFound } from "next/navigation";
 import {
   updateRecruitingStatus,
@@ -40,7 +39,6 @@ export default async function RepDetailPage({ params }: { params: Promise<{ id: 
 
   return (
     <div className="flex-1">
-      <NavBar />
       <div className="mx-auto max-w-2xl px-6 py-10">
         <PageHeader
           title={rep.full_name}

@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import NavBar from "@/components/NavBar";
 import { saveRRScoreWeights } from "./actions";
 import { PageHeader, Card, Button, Input } from "@/components/ui";
 
@@ -9,7 +8,6 @@ export default async function RRScoreSettingsPage() {
 
   return (
     <div className="flex-1">
-      <NavBar />
       <div className="mx-auto max-w-lg px-6 py-10">
         <PageHeader
           title="RR Score Configuration"

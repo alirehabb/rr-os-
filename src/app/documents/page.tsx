@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import NavBar from "@/components/NavBar";
 import { createDocument } from "./actions";
 import { PageHeader, LinkCard, Badge, Button, Input, Select, EmptyState } from "@/components/ui";
 
@@ -19,7 +18,6 @@ export default async function DocumentsPage() {
 
   return (
     <div className="flex-1">
-      <NavBar />
       <div className="mx-auto max-w-4xl px-6 py-10">
         <PageHeader title="Documents" />
 

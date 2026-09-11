@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import NavBar from "@/components/NavBar";
 import { createProspect } from "./actions";
 import { PageHeader, LinkCard, Badge, Button, Input, Select, EmptyState } from "@/components/ui";
 
@@ -19,12 +18,11 @@ export default async function ProspectsPage() {
   const supabase = await createClient();
   const { data: prospects } = await supabase
     .from("prospects")
-    .select("id, company_name, stage, source, next_action_date")
+    .select("id, company_name, stage, source, next_action_date, is_demo")
     .order("created_at", { ascending: false });
 
   return (
     <div className="flex-1">
-      <NavBar />
       <div className="mx-auto max-w-5xl px-6 py-10">
         <PageHeader title="RR Acquisition Pipeline" />
 
@@ -49,7 +47,10 @@ export default async function ProspectsPage() {
                   <p className="font-medium text-foreground">{p.company_name}</p>
                   <p className="text-sm text-muted">{p.source}</p>
                 </div>
-                <Badge tone={STAGE_TONE[p.stage]}>{p.stage.replace(/_/g, " ")}</Badge>
+                <div className="flex items-center gap-2">
+                  {p.is_demo && <Badge tone="accent">Demo</Badge>}
+                  <Badge tone={STAGE_TONE[p.stage]}>{p.stage.replace(/_/g, " ")}</Badge>
+                </div>
               </LinkCard>
             </li>
           ))}

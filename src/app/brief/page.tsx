@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import NavBar from "@/components/NavBar";
 import Link from "next/link";
 import { buildFounderBrief } from "@/lib/founderBrief";
 import { PageHeader, SectionTitle, StatTile, Card } from "@/components/ui";
@@ -27,7 +26,6 @@ export default async function BriefPage() {
 
   return (
     <div className="flex-1">
-      <NavBar />
       <div className="mx-auto max-w-2xl px-6 py-10">
         <PageHeader title="Morning Command Brief" subtitle={`Generated ${new Date(brief.generatedAt).toLocaleString()}`} />
 

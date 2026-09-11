@@ -7,40 +7,52 @@ export type PulseTotals = {
   rrOutstanding: number;
   activeClients: number;
   activePipelineValue: number;
+  projectedRRRevenue: number;
   closeRate: number | null;
+  callsBookedThisMonth: number;
 };
 
-// §6.1 RR Pulse — cash vs booked revenue vs projections must stay labeled and distinct.
-export async function getPulseTotals(): Promise<PulseTotals> {
+// §6.1 RR Pulse — cash vs booked revenue vs projections must stay labeled and
+// distinct. `demoMode` never blends demo and real rows in one total: when on,
+// figures reflect only the demo scenario; when off, only real records.
+export async function getPulseTotals(demoMode: boolean): Promise<PulseTotals> {
   const supabase = await createClient();
 
-  const [{ data: verifiedCollections }, { data: ledger }, { data: clients }, { data: opps }] =
-    await Promise.all([
-      supabase.from("collections").select("amount").eq("status", "verified"),
-      supabase.from("ledger_entries").select("entry_type, amount"),
-      supabase.from("clients").select("id, lifecycle_state"),
-      supabase.from("opportunities").select("id, stage, value"),
-    ]);
+  const [{ data: collections }, { data: ledger }, { data: clients }, { data: opps }, { data: calls }] = await Promise.all([
+    supabase.from("collections").select("amount, status, is_demo").eq("is_demo", demoMode),
+    supabase.from("ledger_entries").select("entry_type, amount"),
+    supabase.from("clients").select("id, lifecycle_state, rr_rate_basis").eq("is_demo", demoMode),
+    supabase.from("opportunities").select("id, stage, value, client_id").eq("is_demo", demoMode),
+    supabase.from("calls").select("id, scheduled_at, is_demo").eq("is_demo", demoMode),
+  ]);
 
-  const cashCollected = (verifiedCollections ?? []).reduce((s, c) => s + Number(c.amount), 0);
-  const rrEarned = (ledger ?? [])
-    .filter((l) => l.entry_type === "rr_receivable")
-    .reduce((s, l) => s + Number(l.amount), 0);
-  const rrReceived = (ledger ?? [])
-    .filter((l) => l.entry_type === "rr_received")
-    .reduce((s, l) => s + Number(l.amount), 0);
+  const cashCollected = (collections ?? []).filter((c) => c.status === "verified").reduce((s, c) => s + Number(c.amount), 0);
+  const rrEarned = (ledger ?? []).filter((l) => l.entry_type === "rr_receivable").reduce((s, l) => s + Number(l.amount), 0);
+  const rrReceived = (ledger ?? []).filter((l) => l.entry_type === "rr_received").reduce((s, l) => s + Number(l.amount), 0);
   const rrOutstanding = rrEarned - rrReceived;
 
   const activeClients = (clients ?? []).filter((c) => c.lifecycle_state === "active").length;
+  const clientRateById = new Map((clients ?? []).map((c) => [c.id, (c.rr_rate_basis as { rr_rate?: number } | null)?.rr_rate ?? null]));
 
   const nonTerminal = (opps ?? []).filter((o) => o.stage !== "won" && o.stage !== "lost");
   const activePipelineValue = nonTerminal.reduce((s, o) => s + Number(o.value ?? 0), 0);
+
+  // §15.4 simple transparent forecast: pipeline value × each client's configured
+  // RR rate, assuming every active opportunity closes. Zero where no rate is set.
+  const projectedRRRevenue = nonTerminal.reduce((s, o) => {
+    const rate = clientRateById.get(o.client_id);
+    return s + (rate ? Number(o.value ?? 0) * rate : 0);
+  }, 0);
 
   const attended = (opps ?? []).filter((o) => o.stage === "won" || o.stage === "lost");
   const won = (opps ?? []).filter((o) => o.stage === "won");
   const closeRate = attended.length > 0 ? won.length / attended.length : null;
 
-  return { cashCollected, rrEarned, rrReceived, rrOutstanding, activeClients, activePipelineValue, closeRate };
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const callsBookedThisMonth = (calls ?? []).filter((c) => new Date(c.scheduled_at) >= startOfMonth).length;
+
+  return { cashCollected, rrEarned, rrReceived, rrOutstanding, activeClients, activePipelineValue, projectedRRRevenue, closeRate, callsBookedThisMonth };
 }
 
 export type QueueItem = {
@@ -57,11 +69,12 @@ export type QueueItem = {
 
 // §6.3 Command Queue ordering default: overdue/high-risk first, then approaching
 // deadlines and material risk, then routine — with founder pin override.
-export async function getCommandQueue(): Promise<QueueItem[]> {
+export async function getCommandQueue(demoMode: boolean): Promise<QueueItem[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("action_items")
     .select("id, title, reason, status, priority, pinned, deadline_at, money_impact, client_id")
+    .eq("is_demo", demoMode)
     .in("status", ["open", "in_progress", "waiting"])
     .order("pinned", { ascending: false })
     .order("deadline_at", { ascending: true, nullsFirst: false })
@@ -83,14 +96,18 @@ export type ClientClockRow = {
 };
 
 // §8.3 fulfillment/go-live clocks, for the client health section of Home.
-export async function getClientClocks(): Promise<ClientClockRow[]> {
+export async function getClientClocks(demoMode: boolean): Promise<ClientClockRow[]> {
   const supabase = await createClient();
-  const { data: clocks } = await supabase
-    .from("client_clocks")
-    .select(
-      "client_id, signed_at, fulfillment_deadline, go_live_deadline, fulfillment_completed_at, go_live_completed_at, fulfillment_breached, go_live_breached",
-    );
-  const { data: clients } = await supabase.from("clients").select("id, name");
+  const { data: clients } = await supabase.from("clients").select("id, name").eq("is_demo", demoMode);
+  const clientIds = (clients ?? []).map((c) => c.id);
+  const { data: clocks } = clientIds.length
+    ? await supabase
+        .from("client_clocks")
+        .select(
+          "client_id, signed_at, fulfillment_deadline, go_live_deadline, fulfillment_completed_at, go_live_completed_at, fulfillment_breached, go_live_breached",
+        )
+        .in("client_id", clientIds)
+    : { data: [] };
 
   const nameById = new Map((clients ?? []).map((c) => [c.id, c.name]));
   return (clocks ?? []).map((c) => ({ ...c, name: nameById.get(c.client_id!) ?? "Unknown" }));

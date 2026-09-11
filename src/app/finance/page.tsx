@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import NavBar from "@/components/NavBar";
 import {
   recordCollection,
   verifyCollection,
@@ -42,7 +41,6 @@ export default async function FinancePage() {
 
   return (
     <div className="flex-1">
-      <NavBar />
       <div className="mx-auto max-w-4xl px-6 py-10">
         <PageHeader title="Finance" />
 

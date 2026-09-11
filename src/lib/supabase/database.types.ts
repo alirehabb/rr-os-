@@ -33,6 +33,7 @@ export type Database = {
           title: string
           updated_at: string
           waiting_on: string | null
+          is_demo: boolean
         }
         Insert: {
           client_id?: string | null
@@ -54,6 +55,7 @@ export type Database = {
           title: string
           updated_at?: string
           waiting_on?: string | null
+          is_demo?: boolean
         }
         Update: {
           client_id?: string | null
@@ -75,6 +77,7 @@ export type Database = {
           title?: string
           updated_at?: string
           waiting_on?: string | null
+          is_demo?: boolean
         }
         Relationships: []
       }
@@ -133,6 +136,7 @@ export type Database = {
           transcript_status: string
           transcript_url: string | null
           updated_at: string
+          is_demo: boolean
         }
         Insert: {
           agreed_next_action?: string | null
@@ -152,6 +156,7 @@ export type Database = {
           transcript_status?: string
           transcript_url?: string | null
           updated_at?: string
+          is_demo?: boolean
         }
         Update: {
           agreed_next_action?: string | null
@@ -171,6 +176,7 @@ export type Database = {
           transcript_status?: string
           transcript_url?: string | null
           updated_at?: string
+          is_demo?: boolean
         }
         Relationships: []
       }
@@ -186,6 +192,7 @@ export type Database = {
           signed_at: string | null
           updated_at: string
           workflow_type: string
+          is_demo: boolean
         }
         Insert: {
           created_at?: string
@@ -198,6 +205,7 @@ export type Database = {
           signed_at?: string | null
           updated_at?: string
           workflow_type?: string
+          is_demo?: boolean
         }
         Update: {
           created_at?: string
@@ -210,6 +218,7 @@ export type Database = {
           signed_at?: string | null
           updated_at?: string
           workflow_type?: string
+          is_demo?: boolean
         }
         Relationships: []
       }
@@ -227,6 +236,7 @@ export type Database = {
           updated_at: string
           verified_at: string | null
           verified_by: string | null
+          is_demo: boolean
         }
         Insert: {
           amount: number
@@ -241,6 +251,7 @@ export type Database = {
           updated_at?: string
           verified_at?: string | null
           verified_by?: string | null
+          is_demo?: boolean
         }
         Update: {
           amount?: number
@@ -255,6 +266,7 @@ export type Database = {
           updated_at?: string
           verified_at?: string | null
           verified_by?: string | null
+          is_demo?: boolean
         }
         Relationships: []
       }
@@ -311,6 +323,7 @@ export type Database = {
           status: string
           updated_at: string
           value: number
+          is_demo: boolean
         }
         Insert: {
           created_at?: string
@@ -319,6 +332,7 @@ export type Database = {
           status?: string
           updated_at?: string
           value: number
+          is_demo?: boolean
         }
         Update: {
           created_at?: string
@@ -327,6 +341,7 @@ export type Database = {
           status?: string
           updated_at?: string
           value?: number
+          is_demo?: boolean
         }
         Relationships: []
       }
@@ -438,6 +453,7 @@ export type Database = {
           stage: Database["public"]["Enums"]["opportunity_stage"]
           updated_at: string
           value: number | null
+          is_demo: boolean
         }
         Insert: {
           client_id: string
@@ -453,6 +469,7 @@ export type Database = {
           stage?: Database["public"]["Enums"]["opportunity_stage"]
           updated_at?: string
           value?: number | null
+          is_demo?: boolean
         }
         Update: {
           client_id?: string
@@ -468,6 +485,7 @@ export type Database = {
           stage?: Database["public"]["Enums"]["opportunity_stage"]
           updated_at?: string
           value?: number | null
+          is_demo?: boolean
         }
         Relationships: []
       }
@@ -499,6 +517,18 @@ export type Database = {
           reason?: string
           to_rep_id?: string | null
         }
+        Relationships: []
+      }
+      founder_targets: {
+        Row: { id: string; monthly_revenue_target: number | null; deals_target: number | null; new_clients_target: number | null; updated_at: string }
+        Insert: { id?: string; monthly_revenue_target?: number | null; deals_target?: number | null; new_clients_target?: number | null; updated_at?: string }
+        Update: { id?: string; monthly_revenue_target?: number | null; deals_target?: number | null; new_clients_target?: number | null; updated_at?: string }
+        Relationships: []
+      }
+      demo_mode: {
+        Row: { id: string; enabled: boolean; updated_at: string }
+        Insert: { id?: string; enabled?: boolean; updated_at?: string }
+        Update: { id?: string; enabled?: boolean; updated_at?: string }
         Relationships: []
       }
       rr_score_config: {
@@ -688,6 +718,7 @@ export type Database = {
           converted_client_id: string | null
           created_at: string
           updated_at: string
+          is_demo: boolean
         }
         Insert: {
           id?: string
@@ -704,6 +735,7 @@ export type Database = {
           converted_client_id?: string | null
           created_at?: string
           updated_at?: string
+          is_demo?: boolean
         }
         Update: {
           id?: string
@@ -720,6 +752,7 @@ export type Database = {
           converted_client_id?: string | null
           created_at?: string
           updated_at?: string
+          is_demo?: boolean
         }
         Relationships: []
       }
@@ -820,6 +853,7 @@ export type Database = {
           verified_cash_collected: number | null
           is_benchmark: boolean
           benchmark_stats: Json | null
+          is_demo: boolean
         }
         Insert: {
           capabilities?: string[]
@@ -839,6 +873,7 @@ export type Database = {
           verified_cash_collected?: number | null
           is_benchmark?: boolean
           benchmark_stats?: Json | null
+          is_demo?: boolean
         }
         Update: {
           capabilities?: string[]
@@ -858,6 +893,7 @@ export type Database = {
           verified_cash_collected?: number | null
           is_benchmark?: boolean
           benchmark_stats?: Json | null
+          is_demo?: boolean
         }
         Relationships: []
       }

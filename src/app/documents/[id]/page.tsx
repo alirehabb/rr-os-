@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import NavBar from "@/components/NavBar";
 import { notFound } from "next/navigation";
 import { markSentForSignature, attachExecutedCopy, approveStructuredTerms } from "../actions";
 import { PageHeader, Badge, Card, Field, Input, Select, Button } from "@/components/ui";
@@ -21,7 +20,6 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
 
   return (
     <div className="flex-1">
-      <NavBar />
       <div className="mx-auto max-w-xl px-6 py-10">
         <PageHeader title={doc.title} subtitle={<>{doc.doc_type} · <Badge>{doc.status.replace(/_/g, " ")}</Badge></>} />
 

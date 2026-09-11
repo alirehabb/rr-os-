@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import NavBar from "@/components/NavBar";
 import { createClient_ } from "./actions";
 import { PageHeader, LinkCard, Badge, Button, Input, Select, EmptyState } from "@/components/ui";
 
@@ -18,12 +17,11 @@ export default async function ClientsPage() {
   const supabase = await createClient();
   const { data: clients } = await supabase
     .from("clients")
-    .select("id, name, lifecycle_state, workflow_type, signed_at")
+    .select("id, name, lifecycle_state, workflow_type, signed_at, is_demo")
     .order("created_at", { ascending: false });
 
   return (
     <div className="flex-1">
-      <NavBar />
       <div className="mx-auto max-w-5xl px-6 py-10">
         <PageHeader title="Clients" />
 
@@ -45,7 +43,10 @@ export default async function ClientsPage() {
                   <p className="font-medium text-foreground">{c.name}</p>
                   <p className="text-sm text-muted">{c.workflow_type.replace("_", " ")}</p>
                 </div>
-                <Badge tone={LIFECYCLE_TONE[c.lifecycle_state]}>{c.lifecycle_state.replace(/_/g, " ")}</Badge>
+                <div className="flex items-center gap-2">
+                  {c.is_demo && <Badge tone="accent">Demo</Badge>}
+                  <Badge tone={LIFECYCLE_TONE[c.lifecycle_state]}>{c.lifecycle_state.replace(/_/g, " ")}</Badge>
+                </div>
               </LinkCard>
             </li>
           ))}

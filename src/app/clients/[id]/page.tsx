@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import NavBar from "@/components/NavBar";
 import NotesThread from "@/components/NotesThread";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -43,7 +42,6 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
 
   return (
     <div className="flex-1">
-      <NavBar />
       <div className="mx-auto max-w-5xl px-6 py-10">
         <PageHeader
           title={client.name}
