@@ -12,6 +12,7 @@ const links = [
   { href: "/finance", label: "Finance" },
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/documents", label: "Documents" },
+  { href: "/connections", label: "Connections" },
 ];
 
 export default function NavBar() {
