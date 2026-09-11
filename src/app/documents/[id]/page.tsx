@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import NavBar from "@/components/NavBar";
 import { notFound } from "next/navigation";
 import { markSentForSignature, attachExecutedCopy, approveStructuredTerms } from "../actions";
+import { PageHeader, Badge, Card, Field, Input, Select, Button } from "@/components/ui";
 
 export default async function DocumentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -22,108 +23,82 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
     <div className="flex-1">
       <NavBar />
       <div className="mx-auto max-w-xl px-6 py-10">
-        <h1 className="text-2xl font-semibold">{doc.title}</h1>
-        <p className="mb-6 text-sm text-neutral-500">
-          {doc.doc_type} · {doc.status}
-        </p>
+        <PageHeader title={doc.title} subtitle={<>{doc.doc_type} · <Badge>{doc.status.replace(/_/g, " ")}</Badge></>} />
 
         {doc.status === "draft" && (
-          <form action={markSentForSignature} className="mb-4 rounded-xl border border-neutral-800 bg-neutral-900 p-4">
-            <input type="hidden" name="id" value={doc.id} />
-            <p className="mb-2 text-sm text-neutral-400">
-              No e-signature provider is connected — mark sent when the document has actually been sent through
-              whatever process is in use.
-            </p>
-            <button className="rounded-lg bg-neutral-100 px-3 py-1.5 text-sm font-medium text-neutral-900">
-              Mark sent for signature
-            </button>
+          <form action={markSentForSignature} className="mb-4">
+            <Card>
+              <input type="hidden" name="id" value={doc.id} />
+              <p className="mb-3 text-sm text-muted">
+                No e-signature provider is connected — mark sent when the document has actually been sent through
+                whatever process is in use.
+              </p>
+              <Button>Mark sent for signature</Button>
+            </Card>
           </form>
         )}
 
         {doc.status === "sent_for_signature" && (
-          <form action={attachExecutedCopy} className="mb-4 space-y-2 rounded-xl border border-neutral-800 bg-neutral-900 p-4">
-            <input type="hidden" name="id" value={doc.id} />
-            <label className="block text-sm">
-              Executed copy link/reference
-              <input
-                name="executed_copy_url"
-                required
-                placeholder="Link to signed PDF, or evidence reference"
-                className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm"
-              />
-            </label>
-            <button className="rounded-lg bg-neutral-100 px-3 py-1.5 text-sm font-medium text-neutral-900">
-              Attach executed copy
-            </button>
+          <form action={attachExecutedCopy} className="mb-4">
+            <Card className="space-y-3">
+              <input type="hidden" name="id" value={doc.id} />
+              <Field label="Executed copy link/reference">
+                <Input name="executed_copy_url" required placeholder="Link to signed PDF, or evidence reference" />
+              </Field>
+              <Button>Attach executed copy</Button>
+            </Card>
           </form>
         )}
 
         {doc.status === "executed" && !doc.terms_approved && (
-          <form action={approveStructuredTerms} className="mb-4 space-y-3 rounded-xl border border-emerald-900 bg-emerald-950/30 p-4">
-            <input type="hidden" name="id" value={doc.id} />
-            <p className="text-sm text-emerald-300">
-              Executed: <a href={doc.executed_copy_url ?? "#"} className="underline">{doc.executed_copy_url}</a>
-            </p>
-            {doc.client_id && (
-              <label className="block text-sm">
-                RR rate (cash %, e.g. 0.10)
-                <input
-                  name="rr_rate"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="1"
-                  className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm"
-                />
-              </label>
-            )}
-            {(assignments ?? []).length > 0 && (
-              <>
-                <label className="block text-sm">
-                  Rep assignment
-                  <select name="rep_assignment_id" className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm">
-                    <option value="">— none —</option>
-                    {(assignments ?? []).map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {repNameById.get(a.rep_id) ?? "Unknown"} ({a.role})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block text-sm">
-                  Rep rate
-                  <input
-                    name="rep_rate"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="1"
-                    className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm"
-                  />
-                </label>
-                <label className="block text-sm">
-                  Rep rate basis
-                  <select name="rep_basis" className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm">
-                    <option value="client_cash">% of client cash collected</option>
-                    <option value="rr_share">% of RR's share</option>
-                  </select>
-                </label>
-              </>
-            )}
-            <button className="rounded-lg bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white">
-              Approve structured terms
-            </button>
+          <form action={approveStructuredTerms} className="mb-4">
+            <Card className="space-y-3 border-success/30 bg-success-bg/40">
+              <input type="hidden" name="id" value={doc.id} />
+              <p className="text-sm text-success">
+                Executed:{" "}
+                <a href={doc.executed_copy_url ?? "#"} className="underline">
+                  {doc.executed_copy_url}
+                </a>
+              </p>
+              {doc.client_id && (
+                <Field label="RR rate (cash %, e.g. 0.10)">
+                  <Input name="rr_rate" type="number" step="0.01" min="0" max="1" />
+                </Field>
+              )}
+              {(assignments ?? []).length > 0 && (
+                <>
+                  <Field label="Rep assignment">
+                    <Select name="rep_assignment_id" className="w-full">
+                      <option value="">— none —</option>
+                      {(assignments ?? []).map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {repNameById.get(a.rep_id) ?? "Unknown"} ({a.role})
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label="Rep rate">
+                    <Input name="rep_rate" type="number" step="0.01" min="0" max="1" />
+                  </Field>
+                  <Field label="Rep rate basis">
+                    <Select name="rep_basis" className="w-full">
+                      <option value="client_cash">% of client cash collected</option>
+                      <option value="rr_share">% of RR&apos;s share</option>
+                    </Select>
+                  </Field>
+                </>
+              )}
+              <Button>Approve structured terms</Button>
+            </Card>
           </form>
         )}
 
         {doc.terms_approved && (
-          <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-4 text-sm">
-            <p className="mb-2 font-medium">Approved terms</p>
-            <pre className="overflow-x-auto text-xs text-neutral-400">{JSON.stringify(doc.structured_terms, null, 2)}</pre>
-            <p className="mt-2 text-xs text-neutral-500">
-              Approved {doc.terms_approved_at ? new Date(doc.terms_approved_at).toLocaleString() : ""}
-            </p>
-          </div>
+          <Card className="text-sm">
+            <p className="mb-2 font-medium text-foreground">Approved terms</p>
+            <pre className="overflow-x-auto rounded-xl bg-surface-subtle p-3 text-xs text-muted">{JSON.stringify(doc.structured_terms, null, 2)}</pre>
+            <p className="mt-2 text-xs text-faint">Approved {doc.terms_approved_at ? new Date(doc.terms_approved_at).toLocaleString() : ""}</p>
+          </Card>
         )}
       </div>
     </div>

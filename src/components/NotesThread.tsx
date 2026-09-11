@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { addNote } from "@/app/communications/actions";
+import { SectionTitle, Card, Textarea, Select, Button, EmptyState } from "@/components/ui";
 
 export default async function NotesThread({
   subjectType,
@@ -22,39 +23,35 @@ export default async function NotesThread({
 
   return (
     <section>
-      <h2 className="mb-3 text-lg font-medium">Notes</h2>
-      <form action={addNote} className="mb-3 space-y-2 rounded-xl border border-neutral-800 bg-neutral-900 p-3">
+      <SectionTitle>Notes</SectionTitle>
+      <form action={addNote} className="mb-3 space-y-2 rounded-2xl border border-border bg-surface p-3 shadow-sm shadow-black/[0.03]">
         <input type="hidden" name="subject_type" value={subjectType} />
         <input type="hidden" name="subject_id" value={subjectId} />
         <input type="hidden" name="client_id" value={clientId ?? ""} />
         <input type="hidden" name="revalidate_path" value={revalidatePath} />
-        <textarea
-          name="body"
-          required
-          rows={2}
-          placeholder="Add a note..."
-          className="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm"
-        />
+        <Textarea name="body" required rows={2} placeholder="Add a note..." />
         <div className="flex items-center justify-between">
-          <select name="visibility" className="rounded-lg border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs">
+          <Select name="visibility" className="!px-2 !py-1 text-xs">
             <option value="internal">Internal only</option>
             <option value="client">Visible to client</option>
             <option value="rep">Visible to rep</option>
-          </select>
-          <button className="rounded-lg bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-900">Post</button>
+          </Select>
+          <Button className="!px-3 !py-1 text-xs">Post</Button>
         </div>
       </form>
 
       <ul className="space-y-2">
         {(notes ?? []).map((n) => (
-          <li key={n.id} className="rounded-xl border border-neutral-800 bg-neutral-900 p-3 text-sm">
-            <p>{n.body}</p>
-            <p className="mt-1 text-xs text-neutral-500">
-              {n.visibility} · {new Date(n.created_at).toLocaleString()}
-            </p>
+          <li key={n.id}>
+            <Card className="text-sm">
+              <p className="text-foreground">{n.body}</p>
+              <p className="mt-1 text-xs text-faint">
+                {n.visibility} · {new Date(n.created_at).toLocaleString()}
+              </p>
+            </Card>
           </li>
         ))}
-        {(notes ?? []).length === 0 && <p className="text-sm text-neutral-500">No notes yet.</p>}
+        {(notes ?? []).length === 0 && <EmptyState title="No notes yet." />}
       </ul>
     </section>
   );

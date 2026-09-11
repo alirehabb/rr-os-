@@ -9,6 +9,7 @@ import {
   markFulfillmentComplete,
   markGoLiveComplete,
 } from "../actions";
+import { PageHeader, SectionTitle, Card, Badge, Button, Select, EmptyState } from "@/components/ui";
 
 const LIFECYCLE_STATES = [
   "onboarding",
@@ -44,146 +45,131 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
     <div className="flex-1">
       <NavBar />
       <div className="mx-auto max-w-5xl px-6 py-10">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold">{client.name}</h1>
-            <p className="text-sm text-neutral-500">
-              {client.workflow_type} ·{" "}
-              <Link href={`/clients/${client.id}/report`} className="underline hover:text-neutral-300">
+        <PageHeader
+          title={client.name}
+          subtitle={
+            <>
+              {client.workflow_type.replace("_", " ")} ·{" "}
+              <Link href={`/clients/${client.id}/report`} className="underline hover:text-foreground">
                 Reports
               </Link>
-            </p>
-          </div>
-          <form action={updateLifecycleState} className="flex items-center gap-2">
-            <input type="hidden" name="client_id" value={client.id} />
-            <select
-              name="lifecycle_state"
-              defaultValue={client.lifecycle_state}
-              className="rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm"
-            >
-              {LIFECYCLE_STATES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-            <button className="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-800">
-              Update
-            </button>
-          </form>
-        </div>
+            </>
+          }
+          action={
+            <form action={updateLifecycleState} className="flex items-center gap-2">
+              <input type="hidden" name="client_id" value={client.id} />
+              <Select name="lifecycle_state" defaultValue={client.lifecycle_state}>
+                {LIFECYCLE_STATES.map((s) => (
+                  <option key={s} value={s}>
+                    {s.replace(/_/g, " ")}
+                  </option>
+                ))}
+              </Select>
+              <Button type="submit" variant="secondary">
+                Update
+              </Button>
+            </form>
+          }
+        />
 
         <section className="mb-8 grid grid-cols-2 gap-4">
-          <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-4">
-            <p className="text-xs text-neutral-500">Fulfillment (target: signed + 48h)</p>
+          <Card>
+            <p className="text-xs font-medium uppercase tracking-wide text-faint">Fulfillment · signed + 48h</p>
             {client.fulfillment_completed_at ? (
-              <p className="mt-1 text-emerald-400">
-                Complete {new Date(client.fulfillment_completed_at).toLocaleString()}
-              </p>
+              <p className="mt-1.5 text-success">Complete {new Date(client.fulfillment_completed_at).toLocaleString()}</p>
             ) : (
               <>
-                <p className={`mt-1 ${clock?.fulfillment_breached ? "text-red-400" : "text-amber-400"}`}>
+                <p className={`mt-1.5 ${clock?.fulfillment_breached ? "text-danger" : "text-warning"}`}>
                   Deadline {clock?.fulfillment_deadline ? new Date(clock.fulfillment_deadline).toLocaleString() : "—"}
                   {clock?.fulfillment_breached ? " — breached" : ""}
                 </p>
                 {blockers.length > 0 ? (
-                  <p className="mt-1 text-xs text-neutral-500">{blockers.length} handover item(s) blocking readiness</p>
+                  <p className="mt-1.5 text-xs text-faint">{blockers.length} handover item(s) blocking readiness</p>
                 ) : (
                   <form action={markFulfillmentComplete} className="mt-2">
                     <input type="hidden" name="client_id" value={client.id} />
-                    <button className="rounded-lg bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-900">
-                      Mark fulfillment complete
-                    </button>
+                    <Button className="!px-3 !py-1 text-xs">Mark fulfillment complete</Button>
                   </form>
                 )}
               </>
             )}
-          </div>
-          <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-4">
-            <p className="text-xs text-neutral-500">Go-live (target: signed + 7d)</p>
+          </Card>
+          <Card>
+            <p className="text-xs font-medium uppercase tracking-wide text-faint">Go-live · signed + 7d</p>
             {client.go_live_completed_at ? (
-              <p className="mt-1 text-emerald-400">Live {new Date(client.go_live_completed_at).toLocaleString()}</p>
+              <p className="mt-1.5 text-success">Live {new Date(client.go_live_completed_at).toLocaleString()}</p>
             ) : (
               <>
-                <p className={`mt-1 ${clock?.go_live_breached ? "text-red-400" : "text-amber-400"}`}>
+                <p className={`mt-1.5 ${clock?.go_live_breached ? "text-danger" : "text-warning"}`}>
                   Deadline {clock?.go_live_deadline ? new Date(clock.go_live_deadline).toLocaleString() : "—"}
                   {clock?.go_live_breached ? " — breached" : ""}
                 </p>
                 <form action={markGoLiveComplete} className="mt-2">
                   <input type="hidden" name="client_id" value={client.id} />
-                  <button
-                    disabled={!client.fulfillment_completed_at}
-                    className="rounded-lg bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-900 disabled:opacity-40"
-                  >
+                  <Button disabled={!client.fulfillment_completed_at} className="!px-3 !py-1 text-xs">
                     Mark go-live complete
-                  </button>
+                  </Button>
                 </form>
               </>
             )}
-          </div>
+          </Card>
         </section>
 
         <section className="mb-8">
-          <h2 className="mb-3 text-lg font-medium">Complete Sales Handover</h2>
+          <SectionTitle>Complete Sales Handover</SectionTitle>
           <ul className="space-y-2">
             {(handover ?? []).map((h) => (
-              <li
-                key={h.id}
-                className="flex items-center justify-between rounded-xl border border-neutral-800 bg-neutral-900 p-3"
-              >
-                <div>
-                  <p className="text-sm">{h.label}</p>
-                  <p className="text-xs text-neutral-500">
-                    {h.category} · owner: {h.owner}
-                  </p>
-                </div>
-                <form action={updateHandoverItemStatus} className="flex items-center gap-2">
-                  <input type="hidden" name="id" value={h.id} />
-                  <input type="hidden" name="client_id" value={client.id} />
-                  <select
-                    name="status"
-                    defaultValue={h.status}
-                    className="rounded-lg border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs"
-                  >
-                    <option value="missing">missing</option>
-                    <option value="submitted">submitted</option>
-                    <option value="verified">verified</option>
-                    <option value="not_applicable">not applicable</option>
-                  </select>
-                  <button className="rounded-lg border border-neutral-700 px-2 py-1 text-xs text-neutral-300 hover:bg-neutral-800">
-                    Save
-                  </button>
-                </form>
+              <li key={h.id}>
+                <Card className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-foreground">{h.label}</p>
+                    <p className="text-xs text-faint">
+                      {h.category.replace(/_/g, " ")} · owner: {h.owner}
+                    </p>
+                  </div>
+                  <form action={updateHandoverItemStatus} className="flex items-center gap-2">
+                    <input type="hidden" name="id" value={h.id} />
+                    <input type="hidden" name="client_id" value={client.id} />
+                    <Select name="status" defaultValue={h.status} className="!px-2 !py-1 text-xs">
+                      <option value="missing">missing</option>
+                      <option value="submitted">submitted</option>
+                      <option value="verified">verified</option>
+                      <option value="not_applicable">not applicable</option>
+                    </Select>
+                    <Button variant="secondary" className="!px-2 !py-1 text-xs">
+                      Save
+                    </Button>
+                  </form>
+                </Card>
               </li>
             ))}
           </ul>
         </section>
 
         <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-medium">Opportunities</h2>
-            <Link
-              href={`/opportunities/new?client_id=${client.id}`}
-              className="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-800"
-            >
-              + Log booked call
-            </Link>
-          </div>
+          <SectionTitle
+            action={
+              <Link href={`/opportunities/new?client_id=${client.id}`}>
+                <Button variant="secondary" className="text-sm">
+                  + Log booked call
+                </Button>
+              </Link>
+            }
+          >
+            Opportunities
+          </SectionTitle>
           <ul className="space-y-2">
             {(opportunities ?? []).map((o) => (
               <li key={o.id}>
-                <Link
-                  href={`/opportunities/${o.id}`}
-                  className="flex items-center justify-between rounded-xl border border-neutral-800 bg-neutral-900 p-3 hover:border-neutral-600"
-                >
-                  <p className="text-sm">{o.prospect_name}</p>
-                  <span className="text-xs text-neutral-400">{o.stage}</span>
-                </Link>
+                <Card className="flex items-center justify-between transition-all hover:-translate-y-0.5 hover:border-accent/40">
+                  <Link href={`/opportunities/${o.id}`} className="text-sm text-foreground">
+                    {o.prospect_name}
+                  </Link>
+                  <Badge>{o.stage.replace(/_/g, " ")}</Badge>
+                </Card>
               </li>
             ))}
-            {(opportunities ?? []).length === 0 && (
-              <p className="text-sm text-neutral-500">No booked calls yet for this client.</p>
-            )}
+            {(opportunities ?? []).length === 0 && <EmptyState title="No booked calls yet for this client." />}
           </ul>
         </section>
 

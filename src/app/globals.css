@@ -1,26 +1,90 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --bg: #fafaf9;
+  --bg-elevated: #ffffff;
+  --bg-subtle: #f2f1ee;
+  --border: #e7e5e2;
+  --text: #1c1b19;
+  --text-muted: #6b6963;
+  --text-faint: #a8a59d;
+  --accent: #d97757;
+  --accent-fg: #ffffff;
+  --success: #2f855a;
+  --success-bg: #ecf7f1;
+  --warning: #b7791f;
+  --warning-bg: #fdf6ec;
+  --danger: #c0392b;
+  --danger-bg: #fdeeec;
+  --focus-ring: #d97757;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --bg: #17161a;
+    --bg-elevated: #201f24;
+    --bg-subtle: #26252a;
+    --border: #34333a;
+    --text: #f0efec;
+    --text-muted: #a5a2ab;
+    --text-faint: #726f79;
+    --accent: #e08a67;
+    --accent-fg: #17161a;
+    --success: #6fcf97;
+    --success-bg: #1c2b23;
+    --warning: #e0b366;
+    --warning-bg: #2b2519;
+    --danger: #e0766a;
+    --danger-bg: #2b1b19;
+    --focus-ring: #e08a67;
   }
 }
 
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-surface: var(--bg-elevated);
+  --color-surface-subtle: var(--bg-subtle);
+  --color-border: var(--border);
+  --color-muted: var(--text-muted);
+  --color-faint: var(--text-faint);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+* {
+  border-color: var(--border);
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+@keyframes rr-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rr-fade-up {
+  animation: rr-fade-up 0.25s ease-out;
 }

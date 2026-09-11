@@ -97,3 +97,28 @@ export async function logCallOutcome(formData: FormData) {
   revalidatePath(`/opportunities/${opportunityId}`);
   revalidatePath("/");
 }
+
+// §12 — manual fallback for recording/transcript when no capture provider is
+// connected: attach a link/reference by hand rather than leaving media
+// permanently "unavailable" with no way to resolve it.
+export async function attachCallMedia(formData: FormData) {
+  const callId = String(formData.get("call_id"));
+  const opportunityId = String(formData.get("opportunity_id"));
+  const recording_url = String(formData.get("recording_url") ?? "").trim();
+  const transcript_url = String(formData.get("transcript_url") ?? "").trim();
+
+  const supabase = await createClient();
+  const patch: Database["public"]["Tables"]["calls"]["Update"] = {};
+  if (recording_url) {
+    patch.recording_url = recording_url;
+    patch.recording_status = "available";
+  }
+  if (transcript_url) {
+    patch.transcript_url = transcript_url;
+    patch.transcript_status = "available";
+  }
+  if (Object.keys(patch).length === 0) return;
+
+  await supabase.from("calls").update(patch).eq("id", callId);
+  revalidatePath(`/opportunities/${opportunityId}`);
+}

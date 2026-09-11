@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import NavBar from "@/components/NavBar";
 import Link from "next/link";
+import { PageHeader, SectionTitle, ProgressBar, Badge } from "@/components/ui";
 
 function money(n: number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -120,19 +121,18 @@ export default async function LeaderboardPage() {
     <div className="flex-1">
       <NavBar />
       <div className="mx-auto max-w-3xl px-6 py-10">
-        <h1 className="mb-1 text-2xl font-semibold">Leaderboard</h1>
-        <p className="mb-2 text-sm text-neutral-500">
-          Benchmark rows are clearly labeled hypothetical profiles for motivation — they never count toward real
-          company totals (§21.1).
-        </p>
-        <p className="mb-6 text-xs text-neutral-600">
-          <Link href="/settings/rr-score" className="underline">
+        <PageHeader
+          title="Leaderboard"
+          subtitle="Benchmark rows are clearly labeled hypothetical profiles for motivation — they never count toward real company totals (§21.1)."
+        />
+        <p className="-mt-6 mb-8 text-xs text-faint">
+          <Link href="/settings/rr-score" className="underline hover:text-muted">
             Configure RR Score weights
           </Link>
           {config?.configured && missingComponentsWeighted && " — currently provisional: call quality and client representation have no real data source yet"}
         </p>
 
-        <Board title="Close Rate" real={realRows} benchmarks={benchmarkRows} metric="closeRate" format={(v) => (v === null ? "—" : `${Math.round(v * 100)}%`)} />
+        <Board title="Close Rate" real={realRows} benchmarks={benchmarkRows} metric="closeRate" format={(v) => (v === null ? "—" : `${Math.round(v * 100)}%`)} scaleMax={1} />
         <Board title="Cash Collected" real={realRows} benchmarks={benchmarkRows} metric="cashCollected" format={(v) => money(v as number)} />
         <Board title="Commission Earned" real={realRows} benchmarks={benchmarkRows} metric="commissionEarned" format={(v) => money(v as number)} />
         <Board
@@ -141,11 +141,18 @@ export default async function LeaderboardPage() {
           benchmarks={benchmarkRows}
           metric="rrScore"
           format={(v) => (v === null ? "awaiting configuration" : `${v}${missingComponentsWeighted ? " (provisional)" : ""}`)}
+          scaleMax={100}
         />
       </div>
     </div>
   );
 }
+
+const RANK_STYLE = [
+  { medal: "🥇", tone: "warning" as const },
+  { medal: "🥈", tone: "neutral" as const },
+  { medal: "🥉", tone: "accent" as const },
+];
 
 function Board({
   title,
@@ -153,33 +160,52 @@ function Board({
   benchmarks,
   metric,
   format,
+  scaleMax,
 }: {
   title: string;
   real: RepRow[];
   benchmarks: RepRow[];
   metric: keyof RepRow;
   format: (v: number | null) => string;
+  scaleMax?: number;
 }) {
   const sorted = [...real].sort((a, b) => Number(b[metric] ?? -1) - Number(a[metric] ?? -1));
+  const top = Number(sorted[0]?.[metric] ?? 0) || 1;
 
   return (
     <section className="mb-8">
-      <h2 className="mb-2 text-lg font-medium">{title}</h2>
-      <ul className="space-y-1 text-sm">
-        {sorted.map((r) => (
-          <li key={r.id} className="flex justify-between rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2">
-            <span>{r.fullName}</span>
-            <span className="text-neutral-300">{format(r[metric] as number | null)}</span>
-          </li>
-        ))}
-        {sorted.length === 0 && <li className="text-neutral-500">No reps yet.</li>}
+      <SectionTitle>{title}</SectionTitle>
+      <ul className="space-y-2">
+        {sorted.map((r, i) => {
+          const val = r[metric] as number | null;
+          const pct = scaleMax ? ((val ?? 0) / scaleMax) * 100 : ((val ?? 0) / top) * 100;
+          return (
+            <li key={r.id} className="rounded-2xl border border-border bg-surface p-3 shadow-sm shadow-black/[0.03]">
+              <div className="flex items-center justify-between text-sm">
+                <span className="flex items-center gap-2 font-medium text-foreground">
+                  {i < 3 ? <span>{RANK_STYLE[i].medal}</span> : <span className="text-faint">#{i + 1}</span>}
+                  {r.fullName}
+                </span>
+                <span className="tabular-nums text-muted">{format(val)}</span>
+              </div>
+              {val !== null && (
+                <div className="mt-2">
+                  <ProgressBar value={pct} tone={i === 0 ? "success" : "accent"} />
+                </div>
+              )}
+            </li>
+          );
+        })}
+        {sorted.length === 0 && <li className="text-sm text-faint">No reps yet.</li>}
         {benchmarks.map((r) => (
-          <li
-            key={r.id}
-            className="flex justify-between rounded-lg border border-dashed border-amber-900 bg-amber-950/30 px-3 py-2 text-amber-300"
-          >
-            <span>{r.fullName} (hypothetical)</span>
-            <span>{format(r[metric] as number | null)}</span>
+          <li key={r.id} className="rounded-2xl border border-dashed border-warning/40 bg-warning-bg/40 p-3 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-warning">
+                <Badge tone="warning">hypothetical</Badge>
+                {r.fullName}
+              </span>
+              <span className="tabular-nums text-warning">{format(r[metric] as number | null)}</span>
+            </div>
           </li>
         ))}
       </ul>

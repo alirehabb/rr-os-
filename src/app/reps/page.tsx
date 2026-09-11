@@ -1,7 +1,22 @@
 import { createClient } from "@/lib/supabase/server";
 import NavBar from "@/components/NavBar";
-import Link from "next/link";
 import { createRep } from "./actions";
+import { PageHeader, LinkCard, Badge, Button, Input } from "@/components/ui";
+
+const STATUS_TONE = {
+  application: "neutral",
+  screening: "neutral",
+  interview: "accent",
+  talent_pool: "neutral",
+  rejected: "danger",
+  available_for_matching: "accent",
+  selected: "accent",
+  client_training: "warning",
+  live_trial: "warning",
+  confirmed_active: "success",
+  bench: "warning",
+  removed: "danger",
+} as const;
 
 export default async function RepsPage() {
   const supabase = await createClient();
@@ -15,76 +30,43 @@ export default async function RepsPage() {
     <div className="flex-1">
       <NavBar />
       <div className="mx-auto max-w-5xl px-6 py-10">
-        <h1 className="mb-6 text-2xl font-semibold">Sales Talent</h1>
+        <PageHeader title="Sales Talent" />
 
-        <form action={createRep} className="mb-8 space-y-3 rounded-xl border border-neutral-800 bg-neutral-900 p-4">
+        <form action={createRep} className="mb-8 space-y-3 rounded-2xl border border-border bg-surface p-4 shadow-sm shadow-black/[0.03]">
           <div className="flex gap-2">
-            <input
-              name="full_name"
-              required
-              placeholder="Full name"
-              className="flex-1 rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm"
-            />
-            <input
-              name="email"
-              type="email"
-              required
-              placeholder="Email"
-              className="flex-1 rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm"
-            />
+            <Input name="full_name" required placeholder="Full name" className="flex-1" />
+            <Input name="email" type="email" required placeholder="Email" className="flex-1" />
           </div>
-          <div className="flex flex-wrap items-center gap-4 text-sm text-neutral-300">
-            <label className="flex items-center gap-1">
-              <input type="checkbox" name="capabilities" value="closer" /> Closer
+          <div className="flex flex-wrap items-center gap-4 text-sm text-muted">
+            <label className="flex items-center gap-1.5">
+              <input type="checkbox" name="capabilities" value="closer" className="accent-[var(--accent)]" /> Closer
             </label>
-            <label className="flex items-center gap-1">
-              <input type="checkbox" name="capabilities" value="setter" /> Setter
+            <label className="flex items-center gap-1.5">
+              <input type="checkbox" name="capabilities" value="setter" className="accent-[var(--accent)]" /> Setter
             </label>
-            <input
-              name="geography"
-              placeholder="Geography"
-              className="rounded-lg border border-neutral-700 bg-neutral-800 px-2 py-1.5 text-sm"
-            />
-            <input
-              name="timezone"
-              placeholder="Timezone"
-              className="rounded-lg border border-neutral-700 bg-neutral-800 px-2 py-1.5 text-sm"
-            />
-            <input
-              name="claimed_cash_collected"
-              type="number"
-              placeholder="Claimed cash collected"
-              className="rounded-lg border border-neutral-700 bg-neutral-800 px-2 py-1.5 text-sm"
-            />
+            <Input name="geography" placeholder="Geography" className="w-auto" />
+            <Input name="timezone" placeholder="Timezone" className="w-auto" />
+            <Input name="claimed_cash_collected" type="number" placeholder="Claimed cash collected" className="w-auto" />
           </div>
-          <input
-            name="evidence_source"
-            placeholder="Evidence source (Loom link, referral, past recordings...)"
-            className="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm"
-          />
-          <button className="rounded-lg bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-900">
-            Add applicant
-          </button>
+          <Input name="evidence_source" placeholder="Evidence source (Loom link, referral, past recordings...)" />
+          <Button>Add applicant</Button>
         </form>
 
         <ul className="space-y-2">
           {(reps ?? []).map((r) => (
             <li key={r.id}>
-              <Link
-                href={`/reps/${r.id}`}
-                className="flex items-center justify-between rounded-xl border border-neutral-800 bg-neutral-900 p-4 hover:border-neutral-600"
-              >
+              <LinkCard href={`/reps/${r.id}`} className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium">{r.full_name}</p>
-                  <p className="text-sm text-neutral-500">{r.email} · {r.capabilities.join(", ") || "no role set"}</p>
+                  <p className="font-medium text-foreground">{r.full_name}</p>
+                  <p className="text-sm text-muted">
+                    {r.email} · {r.capabilities.join(", ") || "no role set"}
+                  </p>
                 </div>
-                <span className="rounded-full bg-neutral-800 px-3 py-1 text-xs text-neutral-300">
-                  {r.recruiting_status}
-                </span>
-              </Link>
+                <Badge tone={STATUS_TONE[r.recruiting_status]}>{r.recruiting_status.replace(/_/g, " ")}</Badge>
+              </LinkCard>
             </li>
           ))}
-          {(reps ?? []).length === 0 && <p className="text-sm text-neutral-500">No applicants yet.</p>}
+          {(reps ?? []).length === 0 && <p className="text-sm text-faint">No applicants yet.</p>}
         </ul>
       </div>
     </div>

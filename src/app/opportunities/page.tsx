@@ -1,6 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
 import NavBar from "@/components/NavBar";
-import Link from "next/link";
+import { PageHeader, LinkCard, Badge, EmptyState } from "@/components/ui";
+
+const STAGE_TONE = {
+  upstream: "neutral",
+  booked: "accent",
+  follow_up: "warning",
+  won: "success",
+  lost: "danger",
+} as const;
 
 export default async function OpportunitiesPage() {
   const supabase = await createClient();
@@ -17,24 +25,21 @@ export default async function OpportunitiesPage() {
     <div className="flex-1">
       <NavBar />
       <div className="mx-auto max-w-5xl px-6 py-10">
-        <h1 className="mb-6 text-2xl font-semibold">Opportunities</h1>
+        <PageHeader title="Opportunities" />
         <ul className="space-y-2">
           {(opportunities ?? []).map((o) => (
             <li key={o.id}>
-              <Link
-                href={`/opportunities/${o.id}`}
-                className="flex items-center justify-between rounded-xl border border-neutral-800 bg-neutral-900 p-4 hover:border-neutral-600"
-              >
+              <LinkCard href={`/opportunities/${o.id}`} className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium">{o.prospect_name}</p>
-                  <p className="text-sm text-neutral-500">{clientNameById.get(o.client_id) ?? "Unknown client"}</p>
+                  <p className="font-medium text-foreground">{o.prospect_name}</p>
+                  <p className="text-sm text-muted">{clientNameById.get(o.client_id) ?? "Unknown client"}</p>
                 </div>
-                <span className="rounded-full bg-neutral-800 px-3 py-1 text-xs text-neutral-300">{o.stage}</span>
-              </Link>
+                <Badge tone={STAGE_TONE[o.stage]}>{o.stage.replace("_", " ")}</Badge>
+              </LinkCard>
             </li>
           ))}
           {(opportunities ?? []).length === 0 && (
-            <p className="text-sm text-neutral-500">No booked calls yet. Log one from a Client 360 page.</p>
+            <EmptyState title="No booked calls yet." hint="Log one from a Client 360 page." />
           )}
         </ul>
       </div>

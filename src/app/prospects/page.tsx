@@ -1,7 +1,19 @@
 import { createClient } from "@/lib/supabase/server";
 import NavBar from "@/components/NavBar";
-import Link from "next/link";
 import { createProspect } from "./actions";
+import { PageHeader, LinkCard, Badge, Button, Input, Select, EmptyState } from "@/components/ui";
+
+const STAGE_TONE = {
+  lead: "neutral",
+  interested: "accent",
+  call_booked: "accent",
+  call_completed: "accent",
+  follow_up: "warning",
+  agreement_sent: "warning",
+  signed: "success",
+  no_show: "danger",
+  not_fit: "danger",
+} as const;
 
 export default async function ProspectsPage() {
   const supabase = await createClient();
@@ -14,51 +26,34 @@ export default async function ProspectsPage() {
     <div className="flex-1">
       <NavBar />
       <div className="mx-auto max-w-5xl px-6 py-10">
-        <h1 className="mb-6 text-2xl font-semibold">RR Acquisition Pipeline</h1>
+        <PageHeader title="RR Acquisition Pipeline" />
 
-        <form action={createProspect} className="mb-8 flex gap-2 rounded-xl border border-neutral-800 bg-neutral-900 p-4">
-          <input
-            name="company_name"
-            required
-            placeholder="Company name"
-            className="flex-1 rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm"
-          />
-          <input
-            name="contact_name"
-            placeholder="Contact name"
-            className="flex-1 rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm"
-          />
-          <input
-            name="contact_email"
-            type="email"
-            placeholder="Contact email"
-            className="flex-1 rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm"
-          />
-          <select name="source" className="rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm">
+        <form action={createProspect} className="mb-8 flex gap-2 rounded-2xl border border-border bg-surface p-4 shadow-sm shadow-black/[0.03]">
+          <Input name="company_name" required placeholder="Company name" className="flex-1" />
+          <Input name="contact_name" placeholder="Contact name" className="flex-1" />
+          <Input name="contact_email" type="email" placeholder="Contact email" className="flex-1" />
+          <Select name="source">
             <option value="manual">Manual</option>
             <option value="website">Website pre-qual</option>
             <option value="instantly">Instantly</option>
             <option value="calendly">Calendly discovery</option>
-          </select>
-          <button className="rounded-lg bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-900">Add</button>
+          </Select>
+          <Button>Add</Button>
         </form>
 
         <ul className="space-y-2">
           {(prospects ?? []).map((p) => (
             <li key={p.id}>
-              <Link
-                href={`/prospects/${p.id}`}
-                className="flex items-center justify-between rounded-xl border border-neutral-800 bg-neutral-900 p-4 hover:border-neutral-600"
-              >
+              <LinkCard href={`/prospects/${p.id}`} className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium">{p.company_name}</p>
-                  <p className="text-sm text-neutral-500">{p.source}</p>
+                  <p className="font-medium text-foreground">{p.company_name}</p>
+                  <p className="text-sm text-muted">{p.source}</p>
                 </div>
-                <span className="rounded-full bg-neutral-800 px-3 py-1 text-xs text-neutral-300">{p.stage}</span>
-              </Link>
+                <Badge tone={STAGE_TONE[p.stage]}>{p.stage.replace(/_/g, " ")}</Badge>
+              </LinkCard>
             </li>
           ))}
-          {(prospects ?? []).length === 0 && <p className="text-sm text-neutral-500">No prospects yet.</p>}
+          {(prospects ?? []).length === 0 && <EmptyState title="No prospects yet." />}
         </ul>
       </div>
     </div>

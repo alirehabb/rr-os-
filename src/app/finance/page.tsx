@@ -8,6 +8,7 @@ import {
   recordPayoutPaid,
   setClientRateBasis,
 } from "./actions";
+import { PageHeader, SectionTitle, Card, Badge, Button, Input, EmptyState } from "@/components/ui";
 
 function money(n: number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -28,134 +29,136 @@ export default async function FinancePage() {
 
   const oppById = new Map((opportunities ?? []).map((o) => [o.id, o]));
   const clientById = new Map((clients ?? []).map((c) => [c.id, c]));
-  const dealById = new Map((deals ?? []).map((d) => [d.id, d]));
   const repById = new Map((reps ?? []).map((r) => [r.id, r]));
+
+  const WALLET_TONE = {
+    earned: "neutral",
+    pending_client_payment: "warning",
+    payable: "accent",
+    approved: "accent",
+    paid: "success",
+    failed: "danger",
+  } as const;
 
   return (
     <div className="flex-1">
       <NavBar />
       <div className="mx-auto max-w-4xl px-6 py-10">
-        <h1 className="mb-6 text-2xl font-semibold">Finance</h1>
+        <PageHeader title="Finance" />
 
         <section className="mb-10">
-          <h2 className="mb-3 text-lg font-medium">Deals & collections</h2>
+          <SectionTitle>Deals &amp; collections</SectionTitle>
           <ul className="space-y-3">
             {(deals ?? []).map((d) => {
               const opp = oppById.get(d.opportunity_id);
               const client = opp ? clientById.get(opp.client_id) : undefined;
               const dealCollections = (collections ?? []).filter((c) => c.deal_id === d.id);
               return (
-                <li key={d.id} className="rounded-xl border border-neutral-800 bg-neutral-900 p-4">
-                  <div className="mb-2 flex items-center justify-between">
-                    <p className="font-medium">
-                      {opp?.prospect_name ?? "Unknown"} · {client?.name ?? "Unknown client"}
-                    </p>
-                    <span className="text-sm text-neutral-400">{money(Number(d.value))} · {d.status}</span>
-                  </div>
+                <li key={d.id}>
+                  <Card>
+                    <div className="mb-2 flex items-center justify-between">
+                      <p className="font-medium text-foreground">
+                        {opp?.prospect_name ?? "Unknown"} · {client?.name ?? "Unknown client"}
+                      </p>
+                      <span className="text-sm text-muted">
+                        {money(Number(d.value))} · {d.status}
+                      </span>
+                    </div>
 
-                  {!client?.rr_rate_basis && (
-                    <form action={setClientRateBasis} className="mb-3 flex items-center gap-2 rounded-lg bg-amber-950 p-2 text-xs text-amber-300">
-                      <input type="hidden" name="client_id" value={client?.id} />
-                      <span>No RR rate configured —</span>
-                      <input
-                        name="rr_rate"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="1"
-                        placeholder="e.g. 0.10"
-                        required
-                        className="w-20 rounded border border-amber-800 bg-amber-900 px-1.5 py-0.5 text-amber-100"
-                      />
-                      <button className="rounded bg-amber-800 px-2 py-0.5">Set as cash %</button>
+                    {!client?.rr_rate_basis && (
+                      <form action={setClientRateBasis} className="mb-3 flex items-center gap-2 rounded-xl bg-warning-bg p-2 text-xs text-warning">
+                        <input type="hidden" name="client_id" value={client?.id} />
+                        <span>No RR rate configured —</span>
+                        <input
+                          name="rr_rate"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="1"
+                          placeholder="e.g. 0.10"
+                          required
+                          className="w-20 rounded-lg border border-warning/30 bg-surface px-1.5 py-0.5 text-foreground"
+                        />
+                        <button className="rounded-lg bg-warning px-2 py-0.5 font-medium text-background">Set as cash %</button>
+                      </form>
+                    )}
+
+                    <ul className="space-y-1 text-sm">
+                      {dealCollections.map((c) => (
+                        <li key={c.id} className="flex items-center justify-between">
+                          <span className="text-muted">
+                            {money(Number(c.amount))} · {c.status}
+                            {c.external_reference && ` · ${c.external_reference}`}
+                          </span>
+                          {c.status === "reported" && (
+                            <form action={verifyCollection}>
+                              <input type="hidden" name="collection_id" value={c.id} />
+                              <input type="hidden" name="deal_id" value={d.id} />
+                              <Button variant="secondary" className="!px-2 !py-0.5 text-xs">
+                                Verify
+                              </Button>
+                            </form>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+
+                    <form action={recordCollection} className="mt-2 flex gap-2">
+                      <input type="hidden" name="deal_id" value={d.id} />
+                      <Input name="amount" type="number" required placeholder="Amount collected" className="flex-1 text-xs" />
+                      <Input name="external_reference" placeholder="Reference (optional)" className="flex-1 text-xs" />
+                      <Button className="!px-2 !py-1 text-xs shrink-0">Record</Button>
                     </form>
-                  )}
-
-                  <ul className="space-y-1 text-sm">
-                    {dealCollections.map((c) => (
-                      <li key={c.id} className="flex items-center justify-between">
-                        <span>
-                          {money(Number(c.amount))} · {c.status}
-                          {c.external_reference && ` · ${c.external_reference}`}
-                        </span>
-                        {c.status === "reported" && (
-                          <form action={verifyCollection}>
-                            <input type="hidden" name="collection_id" value={c.id} />
-                            <input type="hidden" name="deal_id" value={d.id} />
-                            <button className="rounded-lg border border-neutral-700 px-2 py-0.5 text-xs text-neutral-300 hover:bg-neutral-800">
-                              Verify
-                            </button>
-                          </form>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-
-                  <form action={recordCollection} className="mt-2 flex gap-2">
-                    <input type="hidden" name="deal_id" value={d.id} />
-                    <input
-                      name="amount"
-                      type="number"
-                      required
-                      placeholder="Amount collected"
-                      className="flex-1 rounded-lg border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs"
-                    />
-                    <input
-                      name="external_reference"
-                      placeholder="Reference (optional)"
-                      className="flex-1 rounded-lg border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs"
-                    />
-                    <button className="rounded-lg bg-neutral-100 px-2 py-1 text-xs font-medium text-neutral-900">Record</button>
-                  </form>
+                  </Card>
                 </li>
               );
             })}
-            {(deals ?? []).length === 0 && <p className="text-sm text-neutral-500">No won deals yet.</p>}
+            {(deals ?? []).length === 0 && <EmptyState title="No won deals yet." />}
           </ul>
         </section>
 
         <section>
-          <h2 className="mb-3 text-lg font-medium">Rep wallet — Earned → Pending → Payable → Approved → Paid</h2>
+          <SectionTitle>Rep wallet — Earned → Pending → Payable → Approved → Paid</SectionTitle>
           <ul className="space-y-2">
             {(wallets ?? []).map((w) => (
-              <li key={w.id} className="flex items-center justify-between rounded-xl border border-neutral-800 bg-neutral-900 p-3 text-sm">
-                <span>
-                  {repById.get(w.rep_id)?.full_name ?? "Unknown rep"} · {money(Number(w.amount))} · {w.status}
-                </span>
-                <div className="flex gap-2">
-                  {w.status === "pending_client_payment" && (
-                    <form action={markPayablePendingToPayable}>
-                      <input type="hidden" name="wallet_entry_id" value={w.id} />
-                      <button className="rounded-lg border border-neutral-700 px-2 py-1 text-xs hover:bg-neutral-800">
-                        RR received — mark payable
-                      </button>
-                    </form>
-                  )}
-                  {w.status === "payable" && (
-                    <form action={approvePayout}>
-                      <input type="hidden" name="wallet_entry_id" value={w.id} />
-                      <button className="rounded-lg border border-neutral-700 px-2 py-1 text-xs hover:bg-neutral-800">
-                        Approve
-                      </button>
-                    </form>
-                  )}
-                  {w.status === "approved" && (
-                    <form action={recordPayoutPaid} className="flex gap-1">
-                      <input type="hidden" name="wallet_entry_id" value={w.id} />
-                      <input
-                        name="payment_reference"
-                        placeholder="Payment reference"
-                        className="rounded-lg border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs"
-                      />
-                      <button className="rounded-lg border border-neutral-700 px-2 py-1 text-xs hover:bg-neutral-800">
-                        Mark paid
-                      </button>
-                    </form>
-                  )}
-                </div>
+              <li key={w.id}>
+                <Card className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-2">
+                    <span className="text-foreground">{repById.get(w.rep_id)?.full_name ?? "Unknown rep"}</span>
+                    <span className="text-muted">{money(Number(w.amount))}</span>
+                    <Badge tone={WALLET_TONE[w.status as keyof typeof WALLET_TONE] ?? "neutral"}>{w.status.replace(/_/g, " ")}</Badge>
+                  </span>
+                  <div className="flex gap-2">
+                    {w.status === "pending_client_payment" && (
+                      <form action={markPayablePendingToPayable}>
+                        <input type="hidden" name="wallet_entry_id" value={w.id} />
+                        <Button variant="secondary" className="!px-2 !py-1 text-xs">
+                          RR received — mark payable
+                        </Button>
+                      </form>
+                    )}
+                    {w.status === "payable" && (
+                      <form action={approvePayout}>
+                        <input type="hidden" name="wallet_entry_id" value={w.id} />
+                        <Button variant="secondary" className="!px-2 !py-1 text-xs">
+                          Approve
+                        </Button>
+                      </form>
+                    )}
+                    {w.status === "approved" && (
+                      <form action={recordPayoutPaid} className="flex gap-1">
+                        <input type="hidden" name="wallet_entry_id" value={w.id} />
+                        <Input name="payment_reference" placeholder="Payment reference" className="text-xs" />
+                        <Button variant="secondary" className="!px-2 !py-1 text-xs">
+                          Mark paid
+                        </Button>
+                      </form>
+                    )}
+                  </div>
+                </Card>
               </li>
             ))}
-            {(wallets ?? []).length === 0 && <p className="text-sm text-neutral-500">No rep earnings yet.</p>}
+            {(wallets ?? []).length === 0 && <EmptyState title="No rep earnings yet." />}
           </ul>
         </section>
       </div>

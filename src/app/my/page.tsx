@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import NavBar from "@/components/NavBar";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { PageHeader, SectionTitle, StatTile, Card, Badge, EmptyState } from "@/components/ui";
 
 function money(n: number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -23,9 +24,11 @@ export default async function MyWorkspacePage() {
     return (
       <div className="flex-1">
         <NavBar />
-        <div className="mx-auto max-w-lg px-6 py-10 text-sm text-neutral-400">
-          No rep profile is linked to your account yet. Ask the founder to link your login to your Sales Talent
-          profile.
+        <div className="mx-auto max-w-lg px-6 py-10">
+          <EmptyState
+            title="No rep profile linked"
+            hint="Ask the founder to link your login to your Sales Talent profile."
+          />
         </div>
       </div>
     );
@@ -84,23 +87,24 @@ export default async function MyWorkspacePage() {
     <div className="flex-1">
       <NavBar />
       <div className="mx-auto max-w-3xl px-6 py-10">
-        <h1 className="mb-1 text-2xl font-semibold">{rep.full_name}&apos;s Workspace</h1>
-        <p className="mb-6 text-sm text-neutral-500">{rep.capabilities.join(" · ")}</p>
+        <PageHeader title={`${rep.full_name}'s Workspace`} subtitle={rep.capabilities.join(" · ")} />
 
-        <section className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4 text-sm">
-          <Stat label="Today's calls" value={String(todaysCalls.length)} />
-          <Stat label="Close rate" value={closeRate === null ? "—" : `${closeRate}%`} />
-          <Stat label="Earned to date" value={money(earned)} />
-          <Stat label="Outstanding payout" value={money(outstanding)} />
+        <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatTile label="Today's calls" value={String(todaysCalls.length)} />
+          <StatTile label="Close rate" value={closeRate === null ? "—" : `${closeRate}%`} />
+          <StatTile label="Earned to date" value={money(earned)} tone="success" />
+          <StatTile label="Outstanding payout" value={money(outstanding)} tone={outstanding > 0 ? "accent" : "neutral"} />
         </section>
 
         {overdueFollowUps.length > 0 && (
           <section className="mb-8">
-            <h2 className="mb-2 text-lg font-medium text-amber-400">Overdue follow-ups</h2>
+            <SectionTitle>
+              <span className="text-warning">Overdue follow-ups</span>
+            </SectionTitle>
             <ul className="space-y-1 text-sm">
               {overdueFollowUps.map((c) => (
-                <li key={c.id}>
-                  <Link href={`/opportunities/${c.opportunity_id}`} className="hover:underline">
+                <li key={c.id} className="text-muted">
+                  <Link href={`/opportunities/${c.opportunity_id}`} className="text-foreground hover:underline">
                     {oppById.get(c.opportunity_id)?.prospect_name ?? "Opportunity"}
                   </Link>{" "}
                   — was due {new Date(c.next_call_at!).toLocaleDateString()}
@@ -112,67 +116,61 @@ export default async function MyWorkspacePage() {
 
         {isCloser && (
           <section className="mb-8">
-            <h2 className="mb-3 text-lg font-medium">My pipeline</h2>
+            <SectionTitle>My pipeline</SectionTitle>
             <ul className="space-y-2">
               {(ownedOpps ?? []).map((o) => (
                 <li key={o.id}>
-                  <Link
-                    href={`/opportunities/${o.id}`}
-                    className="flex items-center justify-between rounded-xl border border-neutral-800 bg-neutral-900 p-3 text-sm hover:border-neutral-600"
-                  >
-                    <span>{o.prospect_name}</span>
-                    <span className="text-neutral-400">{o.stage}</span>
-                  </Link>
+                  <Card className="flex items-center justify-between transition-all hover:-translate-y-0.5 hover:border-accent/40">
+                    <Link href={`/opportunities/${o.id}`} className="text-sm text-foreground">
+                      {o.prospect_name}
+                    </Link>
+                    <Badge>{o.stage.replace(/_/g, " ")}</Badge>
+                  </Card>
                 </li>
               ))}
-              {(ownedOpps ?? []).length === 0 && <p className="text-sm text-neutral-500">No opportunities yet.</p>}
+              {(ownedOpps ?? []).length === 0 && <EmptyState title="No opportunities yet." />}
             </ul>
           </section>
         )}
 
         {isSetter && (
           <section className="mb-8">
-            <h2 className="mb-3 text-lg font-medium">Setting contribution</h2>
+            <SectionTitle>Setting contribution</SectionTitle>
             <ul className="space-y-2">
               {(setterOpps ?? []).map((o) => (
-                <li key={o.id} className="flex items-center justify-between rounded-xl border border-neutral-800 bg-neutral-900 p-3 text-sm">
-                  <span>{o.prospect_name}</span>
-                  <span className="text-neutral-400">{o.stage}</span>
+                <li key={o.id}>
+                  <Card className="flex items-center justify-between text-sm">
+                    <span className="text-foreground">{o.prospect_name}</span>
+                    <Badge>{o.stage.replace(/_/g, " ")}</Badge>
+                  </Card>
                 </li>
               ))}
-              {(setterOpps ?? []).length === 0 && <p className="text-sm text-neutral-500">Nothing booked yet.</p>}
+              {(setterOpps ?? []).length === 0 && <EmptyState title="Nothing booked yet." />}
             </ul>
           </section>
         )}
 
         <section>
-          <h2 className="mb-3 text-lg font-medium">Client assignments</h2>
+          <SectionTitle>Client assignments</SectionTitle>
           <ul className="space-y-2 text-sm">
             {(assignments ?? []).map((a) => (
-              <li key={a.id} className="rounded-xl border border-neutral-800 bg-neutral-900 p-3">
-                <p>
-                  {a.role} · {a.status}
-                </p>
-                {a.booking_link && (
-                  <a href={a.booking_link} className="text-xs text-neutral-500 underline">
-                    {a.booking_link}
-                  </a>
-                )}
+              <li key={a.id}>
+                <Card>
+                  <p className="text-foreground">
+                    {a.role} · {a.status}
+                  </p>
+                  {a.booking_link && (
+                    <a href={a.booking_link} className="text-xs text-faint underline">
+                      {a.booking_link}
+                    </a>
+                  )}
+                </Card>
               </li>
             ))}
-            {(assignments ?? []).length === 0 && <p className="text-neutral-500">No client assignments yet.</p>}
+            {(assignments ?? []).length === 0 && <EmptyState title="No client assignments yet." />}
           </ul>
         </section>
       </div>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-3">
-      <p className="text-xs text-neutral-500">{label}</p>
-      <p className="font-medium">{value}</p>
     </div>
   );
 }
