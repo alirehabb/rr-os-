@@ -7,6 +7,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import Sidebar from "./Sidebar";
 import CommandPalette from "./CommandPalette";
+import { ToastProvider } from "@/components/toast";
 
 export default function AppShellClient({
   isFounder,
@@ -33,9 +34,10 @@ export default function AppShellClient({
     return () => clearInterval(id);
   }, []);
 
-  if (bare) return <>{children}</>;
+  if (bare) return <ToastProvider>{children}</ToastProvider>;
 
   return (
+    <ToastProvider>
     <div className="flex h-screen w-full overflow-hidden">
       <Sidebar isFounder={isFounder} queueCount={queueCount} userName={userName} userEmail={userEmail} />
       <div className="flex min-w-0 flex-1 flex-col">
@@ -78,5 +80,6 @@ export default function AppShellClient({
         </main>
       </div>
     </div>
+    </ToastProvider>
   );
 }

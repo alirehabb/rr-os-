@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { completeActionItemById, pinActionItem } from "@/app/actions";
 import { Badge, Button } from "@/components/ui";
 import { springSnappy } from "@/components/motion";
+import { useToast } from "@/components/toast";
 
 type QueueItem = {
   id: string;
@@ -27,12 +28,14 @@ function money(n: number) {
 export default function CommandQueueClient({ items }: { items: QueueItem[] }) {
   const [optimisticItems, removeItem] = useOptimistic(items, (state, id: string) => state.filter((i) => i.id !== id));
   const [, startTransition] = useTransition();
+  const toast = useToast();
 
-  function complete(id: string) {
+  function complete(id: string, title: string) {
     startTransition(() => {
       removeItem(id);
       completeActionItemById(id);
     });
+    toast(`Cleared: ${title}`, "success");
   }
 
   return (
@@ -50,7 +53,7 @@ export default function CommandQueueClient({ items }: { items: QueueItem[] }) {
               className={`flex items-center gap-3 overflow-hidden px-4 py-3 ${overdue ? "rr-urgent-pulse" : ""}`}
             >
               <button
-                onClick={() => complete(item.id)}
+                onClick={() => complete(item.id, item.title)}
                 aria-label="Complete"
                 className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-border transition-colors hover:border-accent active:scale-90"
               />
