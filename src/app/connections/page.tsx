@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { ensureConnectionRows, checkResendConnection, checkCalendlyConnection, checkStripeConnection, updateConnectionStatus } from "./actions";
+import CheckConnectionForm from "./CheckConnectionForm";
 
-const AUTO_CHECK: Record<string, () => Promise<void>> = {
+const AUTO_CHECK: Record<string, () => Promise<{ status: "connected" | "degraded" | "disconnected"; last_error: string | null }>> = {
   resend: checkResendConnection,
   calendly: checkCalendlyConnection,
   stripe: checkStripeConnection,
@@ -46,11 +47,7 @@ export default async function ConnectionsPage() {
                 {c.last_error && <p className="text-xs text-danger">{c.last_error}</p>}
 
                 {AUTO_CHECK[c.provider] ? (
-                  <form action={AUTO_CHECK[c.provider]} className="mt-2">
-                    <Button variant="secondary" className="!px-3 !py-1 text-xs">
-                      Check connection
-                    </Button>
-                  </form>
+                  <CheckConnectionForm provider={c.provider} action={AUTO_CHECK[c.provider]} />
                 ) : (
                   <form action={updateConnectionStatus} className="mt-2 flex gap-2">
                     <input type="hidden" name="id" value={c.id} />

@@ -48,6 +48,7 @@ export async function checkResendConnection() {
     .is("client_id", null);
 
   revalidatePath("/connections");
+  return { status, last_error };
 }
 
 // A real check against our own stored Calendly token — not a fabricated status.
@@ -83,6 +84,7 @@ export async function checkCalendlyConnection() {
     .is("client_id", null);
 
   revalidatePath("/connections");
+  return { status, last_error };
 }
 
 // A real check against our own stored Stripe key — not a fabricated status.
@@ -118,6 +120,7 @@ export async function checkStripeConnection() {
     .is("client_id", null);
 
   revalidatePath("/connections");
+  return { status, last_error };
 }
 
 // Manual status update for providers without an automated check yet (§19 —
