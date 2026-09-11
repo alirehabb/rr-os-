@@ -17,7 +17,6 @@ export async function ensureConnectionRows() {
   if (missing.length > 0) {
     await supabase.from("connections").insert(missing.map((provider) => ({ provider, status: "disconnected" as const })));
   }
-  revalidatePath("/connections");
 }
 
 // A real check against our own stored Resend key — not a fabricated status.
@@ -46,6 +45,76 @@ export async function checkResendConnection() {
     .from("connections")
     .update({ status, last_attempt_at: now, last_synced_at: status === "connected" ? now : undefined, last_error })
     .eq("provider", "resend")
+    .is("client_id", null);
+
+  revalidatePath("/connections");
+}
+
+// A real check against our own stored Calendly token — not a fabricated status.
+export async function checkCalendlyConnection() {
+  const supabase = await createClient();
+  const now = new Date().toISOString();
+
+  let status: "connected" | "degraded" | "disconnected" = "disconnected";
+  let last_error: string | null = null;
+  let authorized_account: string | null = null;
+
+  try {
+    const res = await fetch("https://api.calendly.com/users/me", {
+      headers: { Authorization: `Bearer ${process.env.CALENDLY_API_TOKEN}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      status = "connected";
+      authorized_account = data.resource?.email ?? null;
+    } else {
+      status = "degraded";
+      last_error = `Calendly responded ${res.status}`;
+    }
+  } catch (e) {
+    status = "disconnected";
+    last_error = e instanceof Error ? e.message : "Unknown error";
+  }
+
+  await supabase
+    .from("connections")
+    .update({ status, authorized_account, last_attempt_at: now, last_synced_at: status === "connected" ? now : undefined, last_error })
+    .eq("provider", "calendly")
+    .is("client_id", null);
+
+  revalidatePath("/connections");
+}
+
+// A real check against our own stored Stripe key — not a fabricated status.
+export async function checkStripeConnection() {
+  const supabase = await createClient();
+  const now = new Date().toISOString();
+
+  let status: "connected" | "degraded" | "disconnected" = "disconnected";
+  let last_error: string | null = null;
+  let authorized_account: string | null = null;
+
+  try {
+    const res = await fetch("https://api.stripe.com/v1/account", {
+      headers: { Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      status = "connected";
+      authorized_account = data.email ?? data.id ?? null;
+    } else {
+      status = "degraded";
+      last_error = `Stripe responded ${res.status}`;
+    }
+  } catch (e) {
+    status = "disconnected";
+    last_error = e instanceof Error ? e.message : "Unknown error";
+  }
+
+  await supabase
+    .from("connections")
+    .update({ status, authorized_account, last_attempt_at: now, last_synced_at: status === "connected" ? now : undefined, last_error })
+    .eq("provider", "stripe")
     .is("client_id", null);
 
   revalidatePath("/connections");

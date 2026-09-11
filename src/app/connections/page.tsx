@@ -1,5 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
-import { ensureConnectionRows, checkResendConnection, updateConnectionStatus } from "./actions";
+import { ensureConnectionRows, checkResendConnection, checkCalendlyConnection, checkStripeConnection, updateConnectionStatus } from "./actions";
+
+const AUTO_CHECK: Record<string, () => Promise<void>> = {
+  resend: checkResendConnection,
+  calendly: checkCalendlyConnection,
+  stripe: checkStripeConnection,
+};
 import { PageHeader, Card, Badge, Button, Select, Input } from "@/components/ui";
 
 const STATUS_TONE = {
@@ -39,8 +45,8 @@ export default async function ConnectionsPage() {
                 {c.last_synced_at && <p className="text-xs text-faint">Last synced: {new Date(c.last_synced_at).toLocaleString()}</p>}
                 {c.last_error && <p className="text-xs text-danger">{c.last_error}</p>}
 
-                {c.provider === "resend" ? (
-                  <form action={checkResendConnection} className="mt-2">
+                {AUTO_CHECK[c.provider] ? (
+                  <form action={AUTO_CHECK[c.provider]} className="mt-2">
                     <Button variant="secondary" className="!px-3 !py-1 text-xs">
                       Check connection
                     </Button>
