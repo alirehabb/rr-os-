@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Bell } from "lucide-react";
 import Link from "next/link";
+import { motion, AnimatePresence } from "motion/react";
 import Sidebar from "./Sidebar";
 import CommandPalette from "./CommandPalette";
 
@@ -38,7 +39,7 @@ export default function AppShellClient({
     <div className="flex h-screen w-full overflow-hidden">
       <Sidebar isFounder={isFounder} queueCount={queueCount} userName={userName} userEmail={userEmail} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-border bg-background/80 px-6 py-3 backdrop-blur-md">
+        <header className="rr-glass relative z-10 flex items-center justify-between border-b border-border px-6 py-3">
           <CommandPalette />
           <div className="flex items-center gap-3">
             {demoActive && (
@@ -63,7 +64,18 @@ export default function AppShellClient({
             </button>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        <main className="flex-1 overflow-y-auto">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={pathname}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+            >
+              {children}
+            </motion.div>
+          </AnimatePresence>
+        </main>
       </div>
     </div>
   );

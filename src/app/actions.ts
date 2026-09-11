@@ -11,6 +11,13 @@ export async function completeActionItem(formData: FormData) {
   revalidatePath("/");
 }
 
+// Plain-argument variant for optimistic client-side calls (CommandQueueClient).
+export async function completeActionItemById(id: string) {
+  const supabase = await createClient();
+  await supabase.from("action_items").update({ status: "done", completed_at: new Date().toISOString() }).eq("id", id);
+  revalidatePath("/");
+}
+
 export async function snoozeActionItem(formData: FormData) {
   const id = String(formData.get("id"));
   const until = String(formData.get("snoozed_until"));

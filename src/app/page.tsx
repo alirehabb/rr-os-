@@ -2,8 +2,9 @@ import { getPulseTotals, getCommandQueue, getClientClocks } from "@/lib/queries"
 import { getClientPulse, getLiveFeed, getToday } from "@/lib/homeExtras";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { completeActionItem, pinActionItem } from "./actions";
 import Link from "next/link";
+import CommandQueueClient from "@/components/CommandQueueClient";
+import { AnimatedNumber } from "@/components/motion";
 import {
   DollarSign,
   ArrowUpRight,
@@ -21,7 +22,7 @@ import {
   FolderOpen,
   TrendingUp,
 } from "lucide-react";
-import { Card, Badge, Button, ProgressBar } from "@/components/ui";
+import { Card, Badge, ProgressBar } from "@/components/ui";
 
 function money(n: number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -80,12 +81,12 @@ export default async function Home() {
 
       {/* RR Pulse */}
       <section className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <PulseTile icon={DollarSign} label="Cash Collected" value={money(pulse.cashCollected)} tone="success" />
-        <PulseTile icon={ArrowUpRight} label="RR Outstanding" value={money(pulse.rrOutstanding)} tone={pulse.rrOutstanding > 0 ? "warning" : "neutral"} />
-        <PulseTile icon={BarChart3} label="Active Pipeline" value={money(pulse.activePipelineValue)} tone="accent" />
-        <PulseTile icon={Clock} label="Projected RR Revenue" value={money(pulse.projectedRRRevenue)} tone="accent" />
-        <PulseTile icon={TrendingUp} label="Close Rate" value={pulse.closeRate === null ? "—" : `${Math.round(pulse.closeRate * 100)}%`} tone="neutral" />
-        <PulseTile icon={Users2} label="Calls Booked" value={String(pulse.callsBookedThisMonth)} tone="neutral" />
+        <PulseTile icon={DollarSign} label="Cash Collected" numericValue={pulse.cashCollected} kind="money" tone="success" />
+        <PulseTile icon={ArrowUpRight} label="RR Outstanding" numericValue={pulse.rrOutstanding} kind="money" tone={pulse.rrOutstanding > 0 ? "warning" : "neutral"} />
+        <PulseTile icon={BarChart3} label="Active Pipeline" numericValue={pulse.activePipelineValue} kind="money" tone="accent" />
+        <PulseTile icon={Clock} label="Projected RR Revenue" numericValue={pulse.projectedRRRevenue} kind="money" tone="accent" />
+        <PulseTile icon={TrendingUp} label="Close Rate" numericValue={pulse.closeRate ?? 0} kind="percent" dash={pulse.closeRate === null} tone="neutral" />
+        <PulseTile icon={Users2} label="Calls Booked" numericValue={pulse.callsBookedThisMonth} kind="count" tone="neutral" />
       </section>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_1fr_1fr]">
@@ -100,32 +101,7 @@ export default async function Home() {
               View all →
             </Link>
           </div>
-          <ul className="divide-y divide-border">
-            {queue.slice(0, 7).map((item) => (
-              <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    {item.pinned && <span className="mr-1 text-warning">★</span>}
-                    {item.title}
-                  </p>
-                  <p className="truncate text-xs text-faint">{item.reason}</p>
-                </div>
-                {item.client_id && (
-                  <Link href={`/clients/${item.client_id}`} className="shrink-0 rounded-full bg-surface-subtle px-2 py-1 text-xs text-muted hover:text-foreground">
-                    Client
-                  </Link>
-                )}
-                <span className="shrink-0 text-xs text-faint">{item.deadline_at ? new Date(item.deadline_at).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "—"}</span>
-                <form action={completeActionItem} className="shrink-0">
-                  <input type="hidden" name="id" value={item.id} />
-                  <Button variant="secondary" className="!px-2.5 !py-1 text-xs">
-                    Open
-                  </Button>
-                </form>
-              </li>
-            ))}
-            {queue.length === 0 && <li className="px-4 py-8 text-center text-sm text-faint">Nothing open. Clear queue.</li>}
-          </ul>
+          <CommandQueueClient items={queue} />
         </Card>
 
         {/* Today */}
@@ -286,7 +262,21 @@ export default async function Home() {
     </div>
   );
 
-  function PulseTile({ icon: Icon, label, value, tone }: { icon: typeof DollarSign; label: string; value: string; tone: "success" | "warning" | "accent" | "neutral" }) {
+  function PulseTile({
+    icon: Icon,
+    label,
+    numericValue,
+    kind,
+    dash,
+    tone,
+  }: {
+    icon: typeof DollarSign;
+    label: string;
+    numericValue: number;
+    kind: "money" | "percent" | "count";
+    dash?: boolean;
+    tone: "success" | "warning" | "accent" | "neutral";
+  }) {
     const toneClasses = {
       success: "bg-success-bg text-success",
       warning: "bg-warning-bg text-warning",
@@ -294,12 +284,14 @@ export default async function Home() {
       neutral: "bg-surface-subtle text-muted",
     }[tone];
     return (
-      <Card className="rr-fade-up">
+      <Card className="rr-fade-up transition-transform hover:-translate-y-0.5">
         <div className={`mb-2 flex h-7 w-7 items-center justify-center rounded-lg ${toneClasses}`}>
           <Icon size={14} />
         </div>
         <p className="text-xs text-faint">{label}</p>
-        <p className="mt-0.5 text-lg font-semibold tabular-nums text-foreground">{value}</p>
+        <p className="mt-0.5 text-lg font-semibold text-foreground">
+          <AnimatedNumber value={numericValue} kind={kind} dash={dash} />
+        </p>
       </Card>
     );
   }

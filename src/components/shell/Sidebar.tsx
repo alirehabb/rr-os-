@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { motion } from "motion/react";
+import { springSnappy } from "@/components/motion";
 import {
   Home,
   ListChecks,
@@ -117,16 +119,23 @@ function NavGroup({ items, isActive }: { items: NavItem[]; isActive: (href: stri
           <Link
             key={item.label}
             href={item.href}
-            className={`group flex items-center justify-between rounded-xl px-2.5 py-1.5 text-sm transition-colors ${
-              active ? "bg-accent/12 font-medium text-accent" : "text-muted hover:bg-surface-subtle hover:text-foreground"
+            className={`group relative flex items-center justify-between rounded-xl px-2.5 py-1.5 text-sm transition-colors ${
+              active ? "font-medium text-accent" : "text-muted hover:bg-surface-subtle hover:text-foreground"
             }`}
           >
-            <span className="flex items-center gap-2.5">
+            {active && (
+              <motion.span
+                layoutId="sidebar-active"
+                className="absolute inset-0 rounded-xl bg-accent/12"
+                transition={springSnappy}
+              />
+            )}
+            <span className="relative flex items-center gap-2.5">
               <Icon size={16} strokeWidth={2} className={active ? "text-accent" : "text-faint group-hover:text-muted"} />
               {item.label}
             </span>
             {!!item.badge && (
-              <span className="rounded-full bg-danger px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+              <span className="relative rounded-full bg-danger px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
                 {item.badge}
               </span>
             )}

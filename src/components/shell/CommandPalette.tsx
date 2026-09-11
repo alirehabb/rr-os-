@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { springSnappy } from "@/components/motion";
 
 const ROUTES: { label: string; href: string; hint?: string }[] = [
   { label: "Home", href: "/", hint: "RR Pulse & Command Queue" },
@@ -77,46 +79,61 @@ export default function CommandPalette() {
         <kbd className="rounded-md border border-border bg-surface-subtle px-1.5 py-0.5 text-[10px] text-faint">⌘K</kbd>
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[15vh]" onClick={() => setOpen(false)}>
-          <div
-            className="rr-scale-in w-full max-w-md overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl shadow-black/30"
-            onClick={(e) => e.stopPropagation()}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+            onClick={() => setOpen(false)}
           >
-            <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-              <Search size={16} className="text-faint" />
-              <input
-                ref={inputRef}
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setSelected(0);
-                }}
-                onKeyDown={onKeyDown}
-                placeholder="Search or go to..."
-                className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-faint"
-              />
-              <kbd className="rounded-md border border-border px-1.5 py-0.5 text-[10px] text-faint">esc</kbd>
-            </div>
-            <div className="max-h-80 overflow-y-auto p-1.5">
-              {filtered.length === 0 && <p className="px-3 py-6 text-center text-sm text-faint">No matches.</p>}
-              {filtered.map((r, i) => (
-                <button
-                  key={r.href}
-                  onClick={() => go(r.href)}
-                  onMouseEnter={() => setSelected(i)}
-                  className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors ${
-                    i === selected ? "bg-accent/12 text-accent" : "text-foreground"
-                  }`}
-                >
-                  <span>{r.label}</span>
-                  {r.hint && <span className="text-xs text-faint">{r.hint}</span>}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+            <motion.div
+              className="rr-glass w-full max-w-md overflow-hidden rounded-2xl border border-border shadow-2xl shadow-black/30"
+              initial={{ opacity: 0, scale: 0.96, y: -8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              transition={springSnappy}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+                <Search size={16} className="text-faint" />
+                <input
+                  ref={inputRef}
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setSelected(0);
+                  }}
+                  onKeyDown={onKeyDown}
+                  placeholder="Search or go to..."
+                  className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-faint"
+                />
+                <kbd className="rounded-md border border-border px-1.5 py-0.5 text-[10px] text-faint">esc</kbd>
+              </div>
+              <div className="max-h-80 overflow-y-auto p-1.5">
+                {filtered.length === 0 && <p className="px-3 py-6 text-center text-sm text-faint">No matches.</p>}
+                {filtered.map((r, i) => (
+                  <button
+                    key={r.href}
+                    onClick={() => go(r.href)}
+                    onMouseEnter={() => setSelected(i)}
+                    className={`relative flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm ${i === selected ? "text-accent" : "text-foreground"}`}
+                  >
+                    {i === selected && (
+                      <motion.span layoutId="palette-active" className="absolute inset-0 rounded-xl bg-accent/12" transition={springSnappy} />
+                    )}
+                    <span className="relative">{r.label}</span>
+                    {r.hint && <span className="relative text-xs text-faint">{r.hint}</span>}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
