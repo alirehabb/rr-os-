@@ -1,7 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 
-const HANDOVER_CHECKLIST: { category: string; label: string }[] = [
+export const HANDOVER_CHECKLIST: { category: string; label: string }[] = [
   { category: "offer_economics", label: "Offers, pricing, ticket sizes, payment/financing plans" },
   { category: "buyer_qualification", label: "ICP, fit criteria, pre-qualification flow" },
   { category: "sales_journey", label: "End-to-end sales process and stages" },

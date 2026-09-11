@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { HANDOVER_CHECKLIST } from "@/lib/clientOnboarding";
 
 // Demo Data Mode: seeds a coherent fictional scenario, every row flagged
 // is_demo=true so it can never be mistaken for real activity and can be
@@ -44,6 +45,25 @@ export async function enableDemoMode() {
     if (client) clientIds[c.name] = client.id;
   }
 
+  // §8.2 Complete Sales Handover checklist — verified for established
+  // clients, a realistic mix of submitted/missing for newer ones, so the
+  // Client 360 handover section and fulfillment blockers aren't empty.
+  for (const c of clientsSeed) {
+    const clientId = clientIds[c.name];
+    if (!clientId) continue;
+    const established = c.lifecycle_state === "active" || c.lifecycle_state === "paused";
+    await supabase.from("handover_items").insert(
+      HANDOVER_CHECKLIST.map((item, i) => ({
+        client_id: clientId,
+        category: item.category,
+        label: item.label,
+        status: established ? "verified" : i < 3 ? "submitted" : "missing",
+        reviewed_at: established ? daysAgo(70) : null,
+        is_demo: true,
+      })),
+    );
+  }
+
   const repsSeed = [
     { name: "Marcus Chen", email: "demo-marcus@example.invalid", capabilities: ["closer"] },
     { name: "Sarah Ibrahim", email: "demo-sarah@example.invalid", capabilities: ["closer"] },
@@ -59,11 +79,30 @@ export async function enableDemoMode() {
     if (rep) repIds[r.name] = rep.id;
   }
 
-  await supabase.from("rep_assignments").insert([
-    { rep_id: repIds["Marcus Chen"], client_id: clientIds["Azgari"], role: "closer", status: "active", active_from: daysAgo(80) },
-    { rep_id: repIds["Sarah Ibrahim"], client_id: clientIds["Drivia"], role: "closer", status: "active", active_from: daysAgo(55) },
-    { rep_id: repIds["Dalia Reyes"], client_id: clientIds["Apex Solutions"], role: "closer", status: "training" },
-  ]);
+  // Compensation terms are required for the wallet flow to compute anything —
+  // without these, verifying a collection would (correctly) just flag missing
+  // terms instead of paying a rep, which is real behavior but not useful demo.
+  const assignmentIds: Record<string, string> = {};
+  const assignmentsSeed = [
+    { rep: "Marcus Chen", client: "Azgari", rate: 0.5, basis: "rr_share" as const, activeFrom: daysAgo(80) },
+    { rep: "Sarah Ibrahim", client: "Drivia", rate: 0.4, basis: "rr_share" as const, activeFrom: daysAgo(55) },
+    { rep: "Dalia Reyes", client: "Apex Solutions", rate: null, basis: null, activeFrom: null },
+  ];
+  for (const a of assignmentsSeed) {
+    const { data: assignment } = await supabase
+      .from("rep_assignments")
+      .insert({
+        rep_id: repIds[a.rep],
+        client_id: clientIds[a.client],
+        role: "closer",
+        status: a.activeFrom ? "active" : "training",
+        active_from: a.activeFrom,
+        compensation_terms: a.rate ? { type: "percentage", rate: a.rate, basis: a.basis } : null,
+      })
+      .select("id")
+      .single();
+    if (assignment) assignmentIds[`${a.rep}-${a.client}`] = assignment.id;
+  }
 
   const oppsSeed = [
     { client: "Azgari", prospect: "Broker Intro — Coastal Partners", stage: "won" as const, value: 18000, ownerRep: "Marcus Chen", daysBack: 12 },
@@ -107,13 +146,66 @@ export async function enableDemoMode() {
         .insert({ opportunity_id: opp.id, value: o.value, status: "won", is_demo: true })
         .select("id")
         .single();
-      if (deal) {
-        await supabase.from("collections").insert({
+      if (!deal) continue;
+
+      const verified = o.client !== "OpenPro"; // OpenPro stays "reported" to demo the unverified-claim state
+      const { data: collection } = await supabase
+        .from("collections")
+        .insert({
           deal_id: deal.id,
           amount: o.value,
-          status: o.client === "OpenPro" ? "reported" : "verified",
+          status: verified ? "verified" : "reported",
           reported_at: daysAgo(o.daysBack - 1),
-          verified_at: o.client === "OpenPro" ? null : daysAgo(o.daysBack - 1),
+          verified_at: verified ? daysAgo(o.daysBack - 1) : null,
+          is_demo: true,
+        })
+        .select("id")
+        .single();
+      if (!collection || !verified) continue;
+
+      // Mirror finance/actions.ts's verifyCollection math so demo numbers
+      // reconcile the same way real ones would.
+      const client = clientsSeed.find((c) => c.name === o.client);
+      const rrRate = client?.rr_rate ?? null;
+      if (!rrRate) continue;
+      const rrAmount = o.value * rrRate;
+
+      const { data: ledgerRR } = await supabase
+        .from("ledger_entries")
+        .insert({
+          collection_id: collection.id,
+          client_id: clientIds[o.client],
+          entry_type: "rr_receivable",
+          amount: rrAmount,
+          effective_terms: { type: "cash_percentage", rr_rate: rrRate },
+          is_demo: true,
+        })
+        .select("id")
+        .single();
+
+      const assignmentKey = `${o.ownerRep}-${o.client}`;
+      const assignment = assignmentsSeed.find((a) => `${a.rep}-${a.client}` === assignmentKey);
+      if (assignment?.rate && ledgerRR) {
+        const repAmount = rrAmount * assignment.rate;
+        const { data: ledgerRep } = await supabase
+          .from("ledger_entries")
+          .insert({
+            collection_id: collection.id,
+            client_id: clientIds[o.client],
+            entry_type: "rep_commission_earned",
+            amount: repAmount,
+            rep_id: repIds[o.ownerRep],
+            effective_terms: { type: "percentage", rate: assignment.rate, basis: assignment.basis },
+            is_demo: true,
+          })
+          .select("id")
+          .single();
+
+        await supabase.from("wallet_entries").insert({
+          rep_id: repIds[o.ownerRep],
+          ledger_entry_id: ledgerRep?.id,
+          amount: repAmount,
+          status: "pending_client_payment",
           is_demo: true,
         });
       }
@@ -169,10 +261,13 @@ export async function disableDemoMode() {
   const supabase = await createClient();
 
   // Purge in dependency order so foreign keys never block deletion.
+  await supabase.from("wallet_entries").delete().eq("is_demo", true);
+  await supabase.from("ledger_entries").delete().eq("is_demo", true);
   await supabase.from("collections").delete().eq("is_demo", true);
   await supabase.from("deals").delete().eq("is_demo", true);
   await supabase.from("calls").delete().eq("is_demo", true);
   await supabase.from("action_items").delete().eq("is_demo", true);
+  await supabase.from("handover_items").delete().eq("is_demo", true);
   await supabase.from("rep_assignments").delete().in("client_id", (await supabase.from("clients").select("id").eq("is_demo", true)).data?.map((c) => c.id) ?? []);
   await supabase.from("opportunities").delete().eq("is_demo", true);
   await supabase.from("prospects").delete().eq("is_demo", true);

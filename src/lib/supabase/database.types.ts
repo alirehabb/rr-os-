@@ -361,6 +361,7 @@ export type Database = {
           reviewed_by: string | null
           status: string
           updated_at: string
+          is_demo: boolean
         }
         Insert: {
           blocks_readiness?: boolean
@@ -377,6 +378,7 @@ export type Database = {
           reviewed_by?: string | null
           status?: string
           updated_at?: string
+          is_demo?: boolean
         }
         Update: {
           blocks_readiness?: boolean
@@ -393,6 +395,7 @@ export type Database = {
           reviewed_by?: string | null
           status?: string
           updated_at?: string
+          is_demo?: boolean
         }
         Relationships: []
       }
@@ -409,6 +412,7 @@ export type Database = {
           id: string
           linked_adjustment_of: string | null
           rep_id: string | null
+          is_demo: boolean
         }
         Insert: {
           amount: number
@@ -422,6 +426,7 @@ export type Database = {
           id?: string
           linked_adjustment_of?: string | null
           rep_id?: string | null
+          is_demo?: boolean
         }
         Update: {
           amount?: number
@@ -435,6 +440,7 @@ export type Database = {
           id?: string
           linked_adjustment_of?: string | null
           rep_id?: string | null
+          is_demo?: boolean
         }
         Relationships: []
       }
@@ -934,6 +940,7 @@ export type Database = {
           rep_id: string
           status: string
           updated_at: string
+          is_demo: boolean
         }
         Insert: {
           amount: number
@@ -947,6 +954,7 @@ export type Database = {
           rep_id: string
           status?: string
           updated_at?: string
+          is_demo?: boolean
         }
         Update: {
           amount?: number
@@ -960,6 +968,7 @@ export type Database = {
           rep_id?: string
           status?: string
           updated_at?: string
+          is_demo?: boolean
         }
         Relationships: []
       }
