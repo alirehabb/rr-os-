@@ -168,6 +168,19 @@ export function ProgressBar({ value, tone = "accent" }: { value: number; tone?: 
   );
 }
 
+export function Sparkline({ values, className = "" }: { values: number[]; className?: string }) {
+  const max = Math.max(...values, 1);
+  const w = 100;
+  const h = 28;
+  const step = values.length > 1 ? w / (values.length - 1) : 0;
+  const points = values.map((v, i) => `${i * step},${h - (v / max) * (h - 2) - 1}`).join(" ");
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className={`h-7 w-full ${className}`} preserveAspectRatio="none">
+      <polyline points={points} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
     <Card className="border-dashed py-10 text-center">

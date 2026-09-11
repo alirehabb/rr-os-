@@ -55,6 +55,29 @@ export async function getPulseTotals(demoMode: boolean): Promise<PulseTotals> {
   return { cashCollected, rrEarned, rrReceived, rrOutstanding, activeClients, activePipelineValue, projectedRRRevenue, closeRate, callsBookedThisMonth };
 }
 
+// Trailing 14-day daily verified-collection totals for the Cash Collected
+// sparkline — real reported_at dates, not a fabricated trend.
+export async function getCashCollectedTrend(demoMode: boolean): Promise<number[]> {
+  const supabase = await createClient();
+  const since = new Date(Date.now() - 13 * 86400000);
+  since.setHours(0, 0, 0, 0);
+
+  const { data: collections } = await supabase
+    .from("collections")
+    .select("amount, status, verified_at, is_demo")
+    .eq("is_demo", demoMode)
+    .eq("status", "verified")
+    .gte("verified_at", since.toISOString());
+
+  const days: number[] = Array(14).fill(0);
+  for (const c of collections ?? []) {
+    if (!c.verified_at) continue;
+    const dayIndex = Math.floor((new Date(c.verified_at).setHours(0, 0, 0, 0) - since.getTime()) / 86400000);
+    if (dayIndex >= 0 && dayIndex < 14) days[dayIndex] += Number(c.amount);
+  }
+  return days;
+}
+
 export type QueueItem = {
   id: string;
   title: string;

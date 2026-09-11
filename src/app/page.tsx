@@ -1,4 +1,4 @@
-import { getPulseTotals, getCommandQueue, getClientClocks } from "@/lib/queries";
+import { getPulseTotals, getCommandQueue, getClientClocks, getCashCollectedTrend } from "@/lib/queries";
 import { getClientPulse, getLiveFeed, getToday } from "@/lib/homeExtras";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
@@ -22,7 +22,7 @@ import {
   FolderOpen,
   TrendingUp,
 } from "lucide-react";
-import { Card, Badge, ProgressBar } from "@/components/ui";
+import { Card, Badge, ProgressBar, Sparkline } from "@/components/ui";
 
 function money(n: number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -43,13 +43,14 @@ export default async function Home() {
   const demoMode = !!demo?.enabled;
   const firstName = (profile?.full_name ?? "there").split(" ")[0];
 
-  const [pulse, queue, clocks, clientPulse, feed, today] = await Promise.all([
+  const [pulse, queue, clocks, clientPulse, feed, today, cashTrend] = await Promise.all([
     getPulseTotals(demoMode),
     getCommandQueue(demoMode),
     getClientClocks(demoMode),
     getClientPulse(demoMode),
     getLiveFeed(demoMode),
     getToday(demoMode),
+    getCashCollectedTrend(demoMode),
   ]);
 
   const hour = new Date().getHours();
@@ -81,7 +82,7 @@ export default async function Home() {
 
       {/* RR Pulse */}
       <section className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <PulseTile icon={DollarSign} label="Cash Collected" numericValue={pulse.cashCollected} kind="money" tone="success" />
+        <PulseTile icon={DollarSign} label="Cash Collected" numericValue={pulse.cashCollected} kind="money" tone="success" trend={cashTrend} />
         <PulseTile icon={ArrowUpRight} label="RR Outstanding" numericValue={pulse.rrOutstanding} kind="money" tone={pulse.rrOutstanding > 0 ? "warning" : "neutral"} />
         <PulseTile icon={BarChart3} label="Active Pipeline" numericValue={pulse.activePipelineValue} kind="money" tone="accent" />
         <PulseTile icon={Clock} label="Projected RR Revenue" numericValue={pulse.projectedRRRevenue} kind="money" tone="accent" />
@@ -269,6 +270,7 @@ export default async function Home() {
     kind,
     dash,
     tone,
+    trend,
   }: {
     icon: typeof DollarSign;
     label: string;
@@ -276,6 +278,7 @@ export default async function Home() {
     kind: "money" | "percent" | "count";
     dash?: boolean;
     tone: "success" | "warning" | "accent" | "neutral";
+    trend?: number[];
   }) {
     const toneClasses = {
       success: "bg-success-bg text-success",
@@ -283,6 +286,7 @@ export default async function Home() {
       accent: "bg-accent/12 text-accent",
       neutral: "bg-surface-subtle text-muted",
     }[tone];
+    const hasTrend = trend && trend.some((v) => v > 0);
     return (
       <Card className="rr-fade-up transition-transform hover:-translate-y-0.5">
         <div className={`mb-2 flex h-7 w-7 items-center justify-center rounded-lg ${toneClasses}`}>
@@ -292,6 +296,11 @@ export default async function Home() {
         <p className="mt-0.5 text-lg font-semibold text-foreground">
           <AnimatedNumber value={numericValue} kind={kind} dash={dash} />
         </p>
+        {hasTrend && (
+          <div className={`mt-1 ${toneClasses.split(" ")[1]} opacity-70`}>
+            <Sparkline values={trend} />
+          </div>
+        )}
       </Card>
     );
   }
