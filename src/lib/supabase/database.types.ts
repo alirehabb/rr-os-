@@ -501,6 +501,51 @@ export type Database = {
         }
         Relationships: []
       }
+      rr_score_config: {
+        Row: {
+          id: string
+          version: number
+          weight_sales_performance: number
+          weight_follow_up_discipline: number
+          weight_call_quality: number
+          weight_client_representation: number
+          weight_consistency: number
+          configured: boolean
+          configured_by: string | null
+          configured_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          version?: number
+          weight_sales_performance?: number
+          weight_follow_up_discipline?: number
+          weight_call_quality?: number
+          weight_client_representation?: number
+          weight_consistency?: number
+          configured?: boolean
+          configured_by?: string | null
+          configured_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          version?: number
+          weight_sales_performance?: number
+          weight_follow_up_discipline?: number
+          weight_call_quality?: number
+          weight_client_representation?: number
+          weight_consistency?: number
+          configured?: boolean
+          configured_by?: string | null
+          configured_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           id: string

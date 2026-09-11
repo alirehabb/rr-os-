@@ -13,6 +13,7 @@ const links = [
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/documents", label: "Documents" },
   { href: "/connections", label: "Connections" },
+  { href: "/settings/rr-score", label: "RR Score Config" },
 ];
 
 export default function NavBar() {
