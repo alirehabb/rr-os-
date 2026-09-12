@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "motion/react";
 import Sidebar from "./Sidebar";
 import CommandPalette from "./CommandPalette";
 import { ToastProvider } from "@/components/toast";
+import { Tooltip } from "@/components/tooltip";
 
 export default function AppShellClient({
   isFounder,
@@ -34,6 +35,14 @@ export default function AppShellClient({
     return () => clearInterval(id);
   }, []);
 
+  // Header starts flush with the page and only picks up the glass material
+  // once content has actually scrolled under it — a plain border looks like
+  // clutter on a page short enough to never scroll.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    setScrolled(false);
+  }, [pathname]);
+
   if (bare) return <ToastProvider>{children}</ToastProvider>;
 
   return (
@@ -41,7 +50,11 @@ export default function AppShellClient({
     <div className="flex h-screen w-full overflow-hidden">
       <Sidebar isFounder={isFounder} queueCount={queueCount} userName={userName} userEmail={userEmail} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="rr-glass relative z-10 flex items-center justify-between border-b border-border px-6 py-3">
+        <header
+          className={`relative z-10 flex items-center justify-between px-6 py-3 transition-colors duration-200 ${
+            scrolled ? "rr-glass border-b border-border" : "border-b border-transparent"
+          }`}
+        >
           <CommandPalette />
           <div className="flex items-center gap-3">
             {demoActive && (
@@ -61,12 +74,14 @@ export default function AppShellClient({
                 </p>
               </div>
             )}
-            <button className="rounded-xl border border-border p-2 text-muted transition-colors hover:bg-surface-subtle hover:text-foreground">
-              <Bell size={16} />
-            </button>
+            <Tooltip label="Notifications">
+              <button aria-label="Notifications" className="rounded-xl border border-border p-2 text-muted transition-colors hover:bg-surface-subtle hover:text-foreground">
+                <Bell size={16} />
+              </button>
+            </Tooltip>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto" onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 4)}>
           <AnimatePresence mode="wait">
             <motion.div
               key={pathname}

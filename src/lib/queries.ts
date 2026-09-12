@@ -78,6 +78,29 @@ export async function getCashCollectedTrend(demoMode: boolean): Promise<number[]
   return days;
 }
 
+// Trailing 14-day daily booked-call counts. The other pulse metrics
+// (RR Outstanding, Active Pipeline, Projected RR Revenue, Close Rate) are
+// point-in-time balances with no stored daily snapshot — a trend for those
+// would have to be fabricated, so they intentionally have none.
+export async function getCallsBookedTrend(demoMode: boolean): Promise<number[]> {
+  const supabase = await createClient();
+  const since = new Date(Date.now() - 13 * 86400000);
+  since.setHours(0, 0, 0, 0);
+
+  const { data: calls } = await supabase
+    .from("calls")
+    .select("scheduled_at, is_demo")
+    .eq("is_demo", demoMode)
+    .gte("scheduled_at", since.toISOString());
+
+  const days: number[] = Array(14).fill(0);
+  for (const c of calls ?? []) {
+    const dayIndex = Math.floor((new Date(c.scheduled_at).setHours(0, 0, 0, 0) - since.getTime()) / 86400000);
+    if (dayIndex >= 0 && dayIndex < 14) days[dayIndex] += 1;
+  }
+  return days;
+}
+
 export type QueueItem = {
   id: string;
   title: string;

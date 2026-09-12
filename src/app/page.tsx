@@ -1,4 +1,4 @@
-import { getPulseTotals, getCommandQueue, getClientClocks, getCashCollectedTrend } from "@/lib/queries";
+import { getPulseTotals, getCommandQueue, getClientClocks, getCashCollectedTrend, getCallsBookedTrend } from "@/lib/queries";
 import { getClientPulse, getLiveFeed, getToday } from "@/lib/homeExtras";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
@@ -46,7 +46,7 @@ export default async function Home() {
   const demoMode = !!demo?.enabled;
   const firstName = (profile?.full_name ?? "there").split(" ")[0];
 
-  const [pulse, queue, clocks, clientPulse, feed, today, cashTrend] = await Promise.all([
+  const [pulse, queue, clocks, clientPulse, feed, today, cashTrend, callsTrend] = await Promise.all([
     getPulseTotals(demoMode),
     getCommandQueue(demoMode),
     getClientClocks(demoMode),
@@ -54,6 +54,7 @@ export default async function Home() {
     getLiveFeed(demoMode),
     getToday(demoMode),
     getCashCollectedTrend(demoMode),
+    getCallsBookedTrend(demoMode),
   ]);
 
   const hour = new Date().getHours();
@@ -90,7 +91,7 @@ export default async function Home() {
         <PulseTile icon={BarChart3} label="Active Pipeline" numericValue={pulse.activePipelineValue} kind="money" tone="accent" />
         <PulseTile icon={Clock} label="Projected RR Revenue" numericValue={pulse.projectedRRRevenue} kind="money" tone="accent" />
         <PulseTile icon={TrendingUp} label="Close Rate" numericValue={pulse.closeRate ?? 0} kind="percent" dash={pulse.closeRate === null} tone="neutral" />
-        <PulseTile icon={Users2} label="Calls Booked" numericValue={pulse.callsBookedThisMonth} kind="count" tone="neutral" />
+        <PulseTile icon={Users2} label="Calls Booked" numericValue={pulse.callsBookedThisMonth} kind="count" tone="neutral" trend={callsTrend} />
       </section>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_1fr_1fr]">
