@@ -58,7 +58,7 @@ export default async function FinancePage() {
                       <p className="font-medium text-foreground">
                         {opp?.prospect_name ?? "Unknown"} · {client?.name ?? "Unknown client"}
                       </p>
-                      <span className="text-sm text-muted">
+                      <span className="rr-fin-num text-sm text-muted">
                         {money(Number(d.value))} · {d.status}
                       </span>
                     </div>
@@ -84,7 +84,7 @@ export default async function FinancePage() {
                     <ul className="space-y-1 text-sm">
                       {dealCollections.map((c) => (
                         <li key={c.id} className="flex items-center justify-between">
-                          <span className="text-muted">
+                          <span className="rr-fin-num text-muted">
                             {money(Number(c.amount))} · {c.status}
                             {c.external_reference && ` · ${c.external_reference}`}
                           </span>
@@ -123,7 +123,7 @@ export default async function FinancePage() {
                 <Card className="flex items-center justify-between text-sm">
                   <span className="flex items-center gap-2">
                     <span className="text-foreground">{repById.get(w.rep_id)?.full_name ?? "Unknown rep"}</span>
-                    <span className="text-muted">{money(Number(w.amount))}</span>
+                    <span className="rr-fin-num text-muted">{money(Number(w.amount))}</span>
                     <Badge tone={WALLET_TONE[w.status as keyof typeof WALLET_TONE] ?? "neutral"}>{w.status.replace(/_/g, " ")}</Badge>
                   </span>
                   <div className="flex gap-2">

@@ -147,9 +147,9 @@ export default async function LeaderboardPage() {
 }
 
 const RANK_STYLE = [
-  { medal: "🥇", tone: "warning" as const },
-  { medal: "🥈", tone: "neutral" as const },
-  { medal: "🥉", tone: "accent" as const },
+  { medal: "🥇", tone: "warning" as const, className: "border-warning/40 bg-warning-bg/50 shadow-[0_0_0_1px_rgba(234,179,8,0.15),0_4px_16px_-4px_rgba(234,179,8,0.35)]" },
+  { medal: "🥈", tone: "neutral" as const, className: "border-border bg-surface-subtle" },
+  { medal: "🥉", tone: "accent" as const, className: "border-accent/30 bg-accent/5" },
 ];
 
 function Board({
@@ -178,10 +178,15 @@ function Board({
           const val = r[metric] as number | null;
           const pct = scaleMax ? ((val ?? 0) / scaleMax) * 100 : ((val ?? 0) / top) * 100;
           return (
-            <li key={r.id} className="rounded-2xl border border-border bg-surface p-3 shadow-sm shadow-black/[0.03]">
+            <li
+              key={r.id}
+              className={`rounded-2xl border p-3 shadow-sm shadow-black/[0.03] transition-transform ${
+                i < 3 ? `${RANK_STYLE[i].className} hover:-translate-y-0.5` : "border-border bg-surface"
+              }`}
+            >
               <div className="flex items-center justify-between text-sm">
                 <span className="flex items-center gap-2 font-medium text-foreground">
-                  {i < 3 ? <span>{RANK_STYLE[i].medal}</span> : <span className="text-faint">#{i + 1}</span>}
+                  {i < 3 ? <span className="text-base">{RANK_STYLE[i].medal}</span> : <span className="text-faint">#{i + 1}</span>}
                   {r.fullName}
                 </span>
                 <span className="tabular-nums text-muted">{format(val)}</span>

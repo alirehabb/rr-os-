@@ -23,6 +23,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { Card, Badge, ProgressBar, Sparkline } from "@/components/ui";
+import QuickAddOpportunitySheet from "@/app/opportunities/QuickAddSheet";
 
 function money(n: number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -35,10 +36,11 @@ export default async function Home() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ data: demo }, { data: profile }, { data: targets }] = await Promise.all([
+  const [{ data: demo }, { data: profile }, { data: targets }, { data: clientOptions }] = await Promise.all([
     supabase.from("demo_mode").select("enabled").limit(1).single(),
     supabase.from("profiles").select("full_name").eq("id", user.id).single(),
     supabase.from("founder_targets").select("*").limit(1).single(),
+    supabase.from("clients").select("id, name").order("name"),
   ]);
   const demoMode = !!demo?.enabled;
   const firstName = (profile?.full_name ?? "there").split(" ")[0];
@@ -242,7 +244,7 @@ export default async function Home() {
           </div>
           <div className="grid grid-cols-1 gap-1.5 p-3">
             <QuickAction href="/opportunities/new" icon={PhoneCall} label="Log a Call" />
-            <QuickAction href="/opportunities/new" icon={PlusCircle} label="Add Opportunity" />
+            <QuickAddOpportunitySheet clients={clientOptions ?? []} />
             <QuickAction href="/clients" icon={Building2} label="Add Client" />
             <QuickAction href="/reps" icon={UserPlus} label="Review Talent" />
             <QuickAction href="/documents" icon={FolderOpen} label="Create Document" />

@@ -173,3 +173,12 @@ body {
 .rr-flash-success {
   animation: rr-flash-success 1.2s ease-out;
 }
+
+/* Finance's visual personality is deliberately quiet and precise next to the
+   gamified Leaderboard/Closer surfaces — monospaced, tightly tracked figures,
+   no color used as decoration, only as real status signal. */
+.rr-fin-num {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
