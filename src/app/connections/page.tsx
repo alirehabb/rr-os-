@@ -1,11 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
-import { ensureConnectionRows, checkResendConnection, checkCalendlyConnection, checkStripeConnection, updateConnectionStatus } from "./actions";
+import { ensureConnectionRows, checkResendConnection, checkCalendlyConnection, checkStripeConnection, checkSlackConnection, updateConnectionStatus } from "./actions";
 import CheckConnectionForm from "./CheckConnectionForm";
 
 const AUTO_CHECK: Record<string, () => Promise<{ status: "connected" | "degraded" | "disconnected"; last_error: string | null }>> = {
   resend: checkResendConnection,
   calendly: checkCalendlyConnection,
   stripe: checkStripeConnection,
+  slack: checkSlackConnection,
 };
 import { PageHeader, Card, Badge, Button, Select, Input } from "@/components/ui";
 

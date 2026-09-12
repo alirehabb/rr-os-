@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { buildFounderBrief } from "@/lib/founderBrief";
 import { PageHeader, SectionTitle, StatTile, Card } from "@/components/ui";
+import SendToSlackButton from "./SendToSlackButton";
 
 function money(n: number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -27,7 +28,11 @@ export default async function BriefPage() {
   return (
     <div className="flex-1">
       <div className="mx-auto max-w-2xl px-6 py-10">
-        <PageHeader title="Morning Command Brief" subtitle={`Generated ${new Date(brief.generatedAt).toLocaleString()}`} />
+        <PageHeader
+          title="Morning Command Brief"
+          subtitle={`Generated ${new Date(brief.generatedAt).toLocaleString()}`}
+          action={<SendToSlackButton />}
+        />
 
         {nothingHappened && (
           <Card className="mb-6 bg-surface-subtle text-sm text-muted">

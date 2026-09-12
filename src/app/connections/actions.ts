@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { slackAuthTest } from "@/lib/slack";
 
 const KNOWN_PROVIDERS = ["resend", "calendly", "slack", "stripe", "google_calendar", "docusign"];
 
@@ -117,6 +118,39 @@ export async function checkStripeConnection() {
     .from("connections")
     .update({ status, authorized_account, last_attempt_at: now, last_synced_at: status === "connected" ? now : undefined, last_error })
     .eq("provider", "stripe")
+    .is("client_id", null);
+
+  revalidatePath("/connections");
+  return { status, last_error };
+}
+
+// A real check against our own stored Slack bot token — not a fabricated status.
+export async function checkSlackConnection() {
+  const supabase = await createClient();
+  const now = new Date().toISOString();
+
+  let status: "connected" | "degraded" | "disconnected" = "disconnected";
+  let last_error: string | null = null;
+  let authorized_account: string | null = null;
+
+  try {
+    const data = await slackAuthTest();
+    if (data.ok) {
+      status = "connected";
+      authorized_account = data.team ? `${data.team} (#${data.user})` : null;
+    } else {
+      status = "degraded";
+      last_error = data.error ?? "Slack responded not-ok";
+    }
+  } catch (e) {
+    status = "disconnected";
+    last_error = e instanceof Error ? e.message : "Unknown error";
+  }
+
+  await supabase
+    .from("connections")
+    .update({ status, authorized_account, last_attempt_at: now, last_synced_at: status === "connected" ? now : undefined, last_error })
+    .eq("provider", "slack")
     .is("client_id", null);
 
   revalidatePath("/connections");
