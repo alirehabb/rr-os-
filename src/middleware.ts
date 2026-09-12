@@ -27,9 +27,17 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // API routes authenticate themselves (webhook signatures, the cron
+  // secret, or — for the public sign page — deliberately no auth at all)
+  // and must never be redirected to /login: a redirect is exactly what
+  // broke Stripe/Calendly webhooks, the cron job, and external contract
+  // signing in production, all silently, since none of them follow
+  // redirects or carry a browser session.
   const isPublicPath =
     request.nextUrl.pathname.startsWith("/login") ||
-    request.nextUrl.pathname.startsWith("/auth");
+    request.nextUrl.pathname.startsWith("/auth") ||
+    request.nextUrl.pathname.startsWith("/api/") ||
+    request.nextUrl.pathname.endsWith("/sign");
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone();
