@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { Card, Badge, ProgressBar, Sparkline } from "@/components/ui";
 import QuickAddOpportunitySheet from "@/app/opportunities/QuickAddSheet";
+import QuickAddClientSheet from "@/app/clients/QuickAddSheet";
 
 function money(n: number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -245,7 +246,7 @@ export default async function Home() {
           <div className="grid grid-cols-1 gap-1.5 p-3">
             <QuickAction href="/opportunities/new" icon={PhoneCall} label="Log a Call" />
             <QuickAddOpportunitySheet clients={clientOptions ?? []} />
-            <QuickAction href="/clients" icon={Building2} label="Add Client" />
+            <QuickAddClientSheet />
             <QuickAction href="/reps" icon={UserPlus} label="Review Talent" />
             <QuickAction href="/documents" icon={FolderOpen} label="Create Document" />
             <QuickAction href="/leaderboard" icon={Award} label="View Leaderboard" />
