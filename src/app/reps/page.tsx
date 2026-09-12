@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createRep } from "./actions";
-import { PageHeader, LinkCard, Badge, Button, Input } from "@/components/ui";
+import { PageHeader, LinkCard, Badge, Button, Input, Avatar } from "@/components/ui";
 
 const STATUS_TONE = {
   application: "neutral",
@@ -50,17 +50,19 @@ export default async function RepsPage() {
           <Button>Add applicant</Button>
         </form>
 
-        <ul className="space-y-2">
+        {/* Talent is the OS's human surface — visual profile cards instead of
+            a data table, distinct from Finance's ledger rows and the
+            Leaderboard's ranked lists. */}
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {(reps ?? []).map((r) => (
             <li key={r.id}>
-              <LinkCard href={`/reps/${r.id}`} className="flex items-center justify-between">
+              <LinkCard href={`/reps/${r.id}`} className="flex flex-col items-center gap-3 p-5 text-center">
+                <Avatar name={r.full_name} />
                 <div>
                   <p className="font-medium text-foreground">{r.full_name}</p>
-                  <p className="text-sm text-muted">
-                    {r.email} · {r.capabilities.join(", ") || "no role set"}
-                  </p>
+                  <p className="mt-0.5 text-xs text-muted">{r.capabilities.join(" · ") || "no role set"}</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center justify-center gap-1.5">
                   {r.is_demo && <Badge tone="accent">Demo</Badge>}
                   <Badge tone={STATUS_TONE[r.recruiting_status]}>{r.recruiting_status.replace(/_/g, " ")}</Badge>
                 </div>

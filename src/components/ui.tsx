@@ -168,6 +168,31 @@ export function ProgressBar({ value, tone = "accent" }: { value: number; tone?: 
   );
 }
 
+const AVATAR_HUES = [
+  "bg-rose-500/15 text-rose-500",
+  "bg-amber-500/15 text-amber-500",
+  "bg-emerald-500/15 text-emerald-500",
+  "bg-sky-500/15 text-sky-500",
+  "bg-violet-500/15 text-violet-500",
+  "bg-pink-500/15 text-pink-500",
+];
+
+// Deterministic per-name color so the same person always gets the same
+// avatar tone across renders/sessions, without storing anything.
+export function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" }) {
+  const initials = name
+    .split(" ")
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  const cls = AVATAR_HUES[hash % AVATAR_HUES.length];
+  const dims = size === "sm" ? "h-8 w-8 text-xs" : "h-11 w-11 text-sm";
+  return <div className={`flex ${dims} shrink-0 items-center justify-center rounded-full font-semibold ${cls}`}>{initials}</div>;
+}
+
 export function Sparkline({ values, className = "" }: { values: number[]; className?: string }) {
   const max = Math.max(...values, 1);
   const w = 100;
