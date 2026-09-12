@@ -182,3 +182,11 @@ body {
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
 }
+
+/* Typed signatures render in a cursive hand instead of the UI's own
+   typeface — a real handwritten look with no canvas/drawing required. */
+.rr-signature {
+  font-family: var(--font-signature), cursive;
+  font-size: 1.75rem;
+  line-height: 1;
+}

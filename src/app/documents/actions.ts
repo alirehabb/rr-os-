@@ -1,8 +1,11 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { fillTemplate } from "@/lib/contractTemplate";
 
 // §16 — prepare an agreement from a template. Draft is distinct from signed.
 export async function createDocument(formData: FormData) {
@@ -27,12 +30,16 @@ export async function createDocument(formData: FormData) {
   redirect(`/documents/${doc.id}`);
 }
 
-// §16 — track through the configured signature process. No e-sign provider
-// is connected, so this stays a manual, visibly-labeled attested state.
-export async function markSentForSignature(formData: FormData) {
+// §16 — save the founder-authored contract text (with {{placeholders}}) and
+// move to sent_for_signature so the /sign link becomes live. The actual
+// legal language is never invented here — it's whatever the founder pastes.
+export async function saveTemplateAndSend(formData: FormData) {
   const id = String(formData.get("id"));
+  const body_template = String(formData.get("body_template") ?? "").trim();
+  if (!body_template) throw new Error("Contract text is required before sending for signature");
+
   const supabase = await createClient();
-  await supabase.from("documents").update({ status: "sent_for_signature" }).eq("id", id);
+  await supabase.from("documents").update({ body_template, status: "sent_for_signature" }).eq("id", id);
   revalidatePath(`/documents/${id}`);
 }
 
@@ -105,4 +112,44 @@ export async function approveStructuredTerms(formData: FormData) {
 
   revalidatePath(`/documents/${id}`);
   revalidatePath("/finance");
+}
+
+// Public signing action — the counterparty has no OS login, so this runs
+// with the service role and only touches one row it's explicitly allowed
+// to move: a document that is actually awaiting signature. Typing your name
+// here is the signature; we record it plus a timestamp and best-effort IP.
+export async function submitSignature(formData: FormData) {
+  const documentId = String(formData.get("document_id"));
+  const signer_name = String(formData.get("signer_name") ?? "").trim();
+  const signer_title = String(formData.get("signer_title") ?? "").trim() || null;
+  if (!signer_name) throw new Error("Your name is required to sign");
+
+  const supabase = createServiceClient();
+  const { data: doc } = await supabase.from("documents").select("id, status, body_template, client_id").eq("id", documentId).single();
+  if (!doc || doc.status !== "sent_for_signature" || !doc.body_template) {
+    throw new Error("This document is not currently open for signature");
+  }
+
+  let clientName = "";
+  if (doc.client_id) {
+    const { data: client } = await supabase.from("clients").select("name").eq("id", doc.client_id).single();
+    clientName = client?.name ?? "";
+  }
+
+  const rendered_body = fillTemplate(doc.body_template, {
+    signer_name,
+    signer_title: signer_title ?? "",
+    client_name: clientName,
+    date: new Date().toLocaleDateString(),
+  });
+
+  const ip_address = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+
+  await supabase.from("document_signatures").insert({ document_id: documentId, signer_name, signer_title, ip_address });
+  await supabase
+    .from("documents")
+    .update({ status: "executed", rendered_body, effective_date: new Date().toISOString() })
+    .eq("id", documentId);
+
+  redirect(`/documents/${documentId}/sign?done=1`);
 }

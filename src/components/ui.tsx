@@ -81,12 +81,14 @@ export function Button({
   className = "",
   type = "submit",
   disabled,
+  onClick,
 }: {
   children: ReactNode;
   variant?: "primary" | "secondary" | "ghost" | "danger";
   className?: string;
   type?: "submit" | "button";
   disabled?: boolean;
+  onClick?: React.MouseEventHandler<HTMLButtonElement>;
 }) {
   const base = "inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium transition-all active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100";
   const variants = {
@@ -96,7 +98,7 @@ export function Button({
     danger: "bg-danger-bg text-danger hover:brightness-95",
   } as const;
   return (
-    <button type={type} disabled={disabled} className={`${base} ${variants[variant]} ${className}`}>
+    <button type={type} disabled={disabled} onClick={onClick} className={`${base} ${variants[variant]} ${className}`}>
       {children}
     </button>
   );

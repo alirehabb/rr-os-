@@ -582,6 +582,33 @@ export type Database = {
         }
         Relationships: []
       }
+      document_signatures: {
+        Row: {
+          id: string
+          document_id: string
+          signer_name: string
+          signer_title: string | null
+          signed_at: string
+          ip_address: string | null
+        }
+        Insert: {
+          id?: string
+          document_id: string
+          signer_name: string
+          signer_title?: string | null
+          signed_at?: string
+          ip_address?: string | null
+        }
+        Update: {
+          id?: string
+          document_id?: string
+          signer_name?: string
+          signer_title?: string | null
+          signed_at?: string
+          ip_address?: string | null
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           id: string
@@ -599,6 +626,8 @@ export type Database = {
           created_by: string | null
           created_at: string
           updated_at: string
+          body_template: string | null
+          rendered_body: string | null
         }
         Insert: {
           id?: string
@@ -616,6 +645,8 @@ export type Database = {
           created_by?: string | null
           created_at?: string
           updated_at?: string
+          body_template?: string | null
+          rendered_body?: string | null
         }
         Update: {
           id?: string
@@ -633,6 +664,8 @@ export type Database = {
           created_by?: string | null
           created_at?: string
           updated_at?: string
+          body_template?: string | null
+          rendered_body?: string | null
         }
         Relationships: []
       }

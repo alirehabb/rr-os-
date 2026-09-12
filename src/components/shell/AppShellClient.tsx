@@ -26,7 +26,7 @@ export default function AppShellClient({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const bare = pathname.startsWith("/login") || pathname.startsWith("/auth");
+  const bare = pathname.startsWith("/login") || pathname.startsWith("/auth") || pathname.endsWith("/sign");
 
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {

@@ -1,13 +1,20 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
-import { markSentForSignature, attachExecutedCopy, approveStructuredTerms } from "../actions";
-import { PageHeader, Badge, Card, Field, Input, Select, Button } from "@/components/ui";
+import { saveTemplateAndSend, attachExecutedCopy, approveStructuredTerms } from "../actions";
+import { PageHeader, Badge, Card, Field, Input, Select, Button, Textarea } from "@/components/ui";
+import { CONTRACT_PLACEHOLDERS } from "@/lib/contractTemplate";
+import CopySignLink from "./CopySignLink";
 
 export default async function DocumentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
   const { data: doc } = await supabase.from("documents").select("*").eq("id", id).single();
   if (!doc) notFound();
+
+  const { data: signature } =
+    doc.status === "executed"
+      ? await supabase.from("document_signatures").select("*").eq("document_id", id).order("signed_at", { ascending: false }).limit(1).single()
+      : { data: null };
 
   const { data: assignments } = doc.client_id
     ? await supabase.from("rep_assignments").select("id, role, rep_id").eq("client_id", doc.client_id)
@@ -24,40 +31,68 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
         <PageHeader title={doc.title} subtitle={<>{doc.doc_type} · <Badge>{doc.status.replace(/_/g, " ")}</Badge></>} />
 
         {doc.status === "draft" && (
-          <form action={markSentForSignature} className="mb-4">
-            <Card>
+          <form action={saveTemplateAndSend} className="mb-4">
+            <Card className="space-y-3">
               <input type="hidden" name="id" value={doc.id} />
-              <p className="mb-3 text-sm text-muted">
-                No e-signature provider is connected — mark sent when the document has actually been sent through
-                whatever process is in use.
+              <p className="text-sm text-muted">
+                Write the actual contract text below. Available placeholders:{" "}
+                {CONTRACT_PLACEHOLDERS.map((p) => (
+                  <code key={p} className="mx-0.5 rounded bg-surface-subtle px-1 py-0.5 text-xs">
+                    {`{{${p}}}`}
+                  </code>
+                ))}
               </p>
-              <Button>Mark sent for signature</Button>
+              <Textarea name="body_template" required rows={14} placeholder="This agreement is entered into between..." className="w-full font-mono text-xs" />
+              <Button>Save &amp; send for signature</Button>
             </Card>
           </form>
         )}
 
         {doc.status === "sent_for_signature" && (
-          <form action={attachExecutedCopy} className="mb-4">
-            <Card className="space-y-3">
-              <input type="hidden" name="id" value={doc.id} />
-              <Field label="Executed copy link/reference">
-                <Input name="executed_copy_url" required placeholder="Link to signed PDF, or evidence reference" />
-              </Field>
-              <Button>Attach executed copy</Button>
+          <>
+            <Card className="mb-4">
+              <p className="mb-2 text-sm text-muted">Share this link with the signer — no account needed on their end.</p>
+              <CopySignLink documentId={doc.id} />
             </Card>
-          </form>
+            <form action={attachExecutedCopy} className="mb-4">
+              <Card className="space-y-3">
+                <input type="hidden" name="id" value={doc.id} />
+                <p className="text-xs text-faint">Signed outside this tool instead? Attach the evidence link here.</p>
+                <Field label="Executed copy link/reference">
+                  <Input name="executed_copy_url" placeholder="Link to signed PDF, or evidence reference" />
+                </Field>
+                <Button variant="secondary">Attach executed copy</Button>
+              </Card>
+            </form>
+          </>
+        )}
+
+        {doc.status === "executed" && doc.rendered_body && (
+          <Card className="mb-4">
+            <p className="mb-3 text-sm font-medium text-success">Signed</p>
+            <pre className="mb-4 whitespace-pre-wrap rounded-xl bg-surface-subtle p-4 text-sm text-foreground">{doc.rendered_body}</pre>
+            {signature && (
+              <div className="border-t border-border pt-3">
+                <p className="rr-signature text-foreground">{signature.signer_name}</p>
+                {signature.signer_title && <p className="text-xs text-faint">{signature.signer_title}</p>}
+                <p className="text-xs text-faint">Signed {new Date(signature.signed_at).toLocaleString()}</p>
+              </div>
+            )}
+          </Card>
         )}
 
         {doc.status === "executed" && !doc.terms_approved && (
           <form action={approveStructuredTerms} className="mb-4">
             <Card className="space-y-3 border-success/30 bg-success-bg/40">
               <input type="hidden" name="id" value={doc.id} />
-              <p className="text-sm text-success">
-                Executed:{" "}
-                <a href={doc.executed_copy_url ?? "#"} className="underline">
-                  {doc.executed_copy_url}
-                </a>
-              </p>
+              {doc.executed_copy_url && (
+                <p className="text-sm text-success">
+                  Executed copy:{" "}
+                  <a href={doc.executed_copy_url} className="underline">
+                    {doc.executed_copy_url}
+                  </a>
+                </p>
+              )}
               {doc.client_id && (
                 <Field label="RR rate (cash %, e.g. 0.10)">
                   <Input name="rr_rate" type="number" step="0.01" min="0" max="1" />
