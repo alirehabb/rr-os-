@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageHeader, SectionTitle, StatTile, Card, Badge, EmptyState } from "@/components/ui";
+import { AnimatedNumber } from "@/components/motion";
 
 function money(n: number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -75,6 +76,15 @@ export default async function MyWorkspacePage() {
   const won = (ownedOpps ?? []).filter((o) => o.stage === "won");
   const closeRate = attended.length > 0 ? Math.round((won.length / attended.length) * 100) : null;
 
+  // Real momentum signal, not invented: consecutive wins counting back from
+  // the most recent attended call (ownedOpps is already ordered by
+  // first_booked_at desc, so filtering preserves recency order).
+  let winStreak = 0;
+  for (const o of attended) {
+    if (o.stage === "won") winStreak++;
+    else break;
+  }
+
   const earned = (wallet ?? []).reduce((s, w) => s + Number(w.amount), 0);
   const paid = (wallet ?? []).filter((w) => w.status === "paid").reduce((s, w) => s + Number(w.amount), 0);
   const outstanding = earned - paid;
@@ -84,13 +94,35 @@ export default async function MyWorkspacePage() {
   return (
     <div className="flex-1">
       <div className="mx-auto max-w-3xl px-6 py-10">
-        <PageHeader title={`${rep.full_name}'s Workspace`} subtitle={rep.capabilities.join(" · ")} />
+        <PageHeader
+          title={`${rep.full_name}'s Workspace`}
+          subtitle={rep.capabilities.join(" · ")}
+          action={
+            winStreak >= 2 ? (
+              <span className="flex items-center gap-1.5 rounded-full border border-warning/40 bg-warning-bg px-3 py-1.5 text-sm font-medium text-warning shadow-[0_0_16px_-4px_rgba(234,179,8,0.5)]">
+                🔥 {winStreak}-win streak
+              </span>
+            ) : undefined
+          }
+        />
 
+        {/* Closer workspace is the OS's gamified surface — momentum-driven,
+            numbers tick up live, same energy as the Leaderboard. */}
         <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatTile label="Today's calls" value={String(todaysCalls.length)} />
           <StatTile label="Close rate" value={closeRate === null ? "—" : `${closeRate}%`} />
-          <StatTile label="Earned to date" value={money(earned)} tone="success" />
-          <StatTile label="Outstanding payout" value={money(outstanding)} tone={outstanding > 0 ? "accent" : "neutral"} />
+          <Card className="rr-fade-up">
+            <p className="text-xs font-medium uppercase tracking-wide text-faint">Earned to date</p>
+            <p className="mt-1.5 text-xl font-semibold text-success">
+              <AnimatedNumber value={earned} kind="money" />
+            </p>
+          </Card>
+          <Card className="rr-fade-up">
+            <p className="text-xs font-medium uppercase tracking-wide text-faint">Outstanding payout</p>
+            <p className={`mt-1.5 text-xl font-semibold ${outstanding > 0 ? "text-accent" : "text-foreground"}`}>
+              <AnimatedNumber value={outstanding} kind="money" />
+            </p>
+          </Card>
         </section>
 
         {overdueFollowUps.length > 0 && (
