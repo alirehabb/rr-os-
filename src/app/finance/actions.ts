@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { verifyCollectionCore } from "@/lib/collections";
+import { verifyCollectionCore, reconcileMissingCommissions } from "@/lib/collections";
 
 // §15.2 — a rep logging "payment collected" is a claim until verified.
 export async function recordCollection(formData: FormData) {
@@ -97,10 +97,25 @@ export async function setRepCompensationTerms(formData: FormData) {
   const basis = String(formData.get("basis"));
   const repId = String(formData.get("rep_id") ?? "");
   const supabase = await createClient();
-  await supabase
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: assignment } = await supabase
     .from("rep_assignments")
     .update({ compensation_terms: { type: "percentage", rate, basis } })
-    .eq("id", assignmentId);
+    .eq("id", assignmentId)
+    .select("client_id, rep_id")
+    .single();
+
+  // Terms set (or changed) after a collection was already verified must not
+  // silently leave that rep unpaid — recompute anything missed.
+  let reconciled = { recomputedCount: 0, totalAmount: 0 };
+  if (assignment) {
+    reconciled = await reconcileMissingCommissions(supabase, { repId: assignment.rep_id, clientId: assignment.client_id, actorId: user?.id });
+  }
+
   revalidatePath("/finance");
   if (repId) revalidatePath(`/reps/${repId}`);
+  return reconciled;
 }

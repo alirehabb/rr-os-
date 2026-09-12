@@ -18,11 +18,11 @@ export const HANDOVER_CHECKLIST: { category: string; label: string }[] = [
 // both paths produce exactly one account with the same onboarding scaffold.
 export async function onboardNewClient(
   supabase: SupabaseClient<Database>,
-  { name, workflowType }: { name: string; workflowType: string },
+  { name, workflowType, isDemo = false }: { name: string; workflowType: string; isDemo?: boolean },
 ) {
   const { data: client, error } = await supabase
     .from("clients")
-    .insert({ name, workflow_type: workflowType, signed_at: new Date().toISOString(), lifecycle_state: "onboarding" })
+    .insert({ name, workflow_type: workflowType, signed_at: new Date().toISOString(), lifecycle_state: "onboarding", is_demo: isDemo })
     .select("id")
     .single();
   if (error) throw new Error(error.message);
@@ -32,6 +32,7 @@ export async function onboardNewClient(
       client_id: client.id,
       category: item.category,
       label: item.label,
+      is_demo: isDemo,
     })),
   );
 
@@ -40,6 +41,7 @@ export async function onboardNewClient(
     reason: "Signed client with no handover items reviewed yet. Fulfillment target is 48 elapsed hours from signature.",
     client_id: client.id,
     deadline_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+    is_demo: isDemo,
   });
 
   return client.id as string;

@@ -1,35 +1,24 @@
 import { createClient } from "@/lib/supabase/server";
 import { createProspect } from "./actions";
 import { getDemoMode } from "@/lib/demoMode";
-import { PageHeader, LinkCard, Badge, Button, Input, Select, EmptyState } from "@/components/ui";
-
-const STAGE_TONE = {
-  lead: "neutral",
-  interested: "accent",
-  call_booked: "accent",
-  call_completed: "accent",
-  follow_up: "warning",
-  agreement_sent: "warning",
-  signed: "success",
-  no_show: "danger",
-  not_fit: "danger",
-} as const;
+import ProspectBoard from "./ProspectBoard";
+import { PageHeader, Button, Input, Select } from "@/components/ui";
 
 export default async function ProspectsPage() {
   const supabase = await createClient();
   const demoMode = await getDemoMode(supabase);
   const { data: prospects } = await supabase
     .from("prospects")
-    .select("id, company_name, stage, source, next_action_date, is_demo")
+    .select("id, company_name, contact_name, stage, source, next_action, next_action_date, converted_client_id, is_demo, updated_at")
     .eq("is_demo", demoMode)
     .order("created_at", { ascending: false });
 
   return (
     <div className="flex-1">
-      <div className="mx-auto max-w-5xl px-6 py-10">
-        <PageHeader title="RR Acquisition Pipeline" />
+      <div className="mx-auto max-w-[1400px] px-6 py-10">
+        <PageHeader title="RR Acquisition Pipeline" subtitle="Drag a card to move it through the pipeline. Dropping on Signed creates the Client 360 automatically." />
 
-        <form action={createProspect} className="mb-8 flex gap-2 rounded-2xl border border-border bg-surface p-4 shadow-sm shadow-black/[0.03]">
+        <form action={createProspect} className="mb-6 flex gap-2 rounded-2xl border border-border bg-surface p-4 shadow-sm shadow-black/[0.03]">
           <Input name="company_name" required placeholder="Company name" className="flex-1" />
           <Input name="contact_name" placeholder="Contact name" className="flex-1" />
           <Input name="contact_email" type="email" placeholder="Contact email" className="flex-1" />
@@ -42,23 +31,7 @@ export default async function ProspectsPage() {
           <Button>Add</Button>
         </form>
 
-        <ul className="space-y-2">
-          {(prospects ?? []).map((p) => (
-            <li key={p.id}>
-              <LinkCard href={`/prospects/${p.id}`} className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-foreground">{p.company_name}</p>
-                  <p className="text-sm text-muted">{p.source}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {p.is_demo && <Badge tone="accent">Demo</Badge>}
-                  <Badge tone={STAGE_TONE[p.stage]}>{p.stage.replace(/_/g, " ")}</Badge>
-                </div>
-              </LinkCard>
-            </li>
-          ))}
-          {(prospects ?? []).length === 0 && <EmptyState title="No prospects yet." />}
-        </ul>
+        <ProspectBoard prospects={prospects ?? []} />
       </div>
     </div>
   );

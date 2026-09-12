@@ -7,8 +7,8 @@ import {
   reviewTrial,
   linkRepProfile,
 } from "../actions";
-import { setRepCompensationTerms } from "@/app/finance/actions";
-import { PageHeader, SectionTitle, Card, Badge, Button, Select, Textarea, Input, Field, EmptyState } from "@/components/ui";
+import SetCompensationForm from "../SetCompensationForm";
+import { PageHeader, SectionTitle, Card, Badge, Button, Select, Textarea, EmptyState } from "@/components/ui";
 
 const RECRUITING_STATUSES = [
   "application",
@@ -29,14 +29,21 @@ export default async function RepDetailPage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: rep }, { data: assignments }, { data: clients }] = await Promise.all([
+  const [{ data: rep }, { data: assignments }, { data: clients }, { data: reconciliations }] = await Promise.all([
     supabase.from("reps").select("*").eq("id", id).single(),
     supabase.from("rep_assignments").select("*").eq("rep_id", id).order("created_at", { ascending: false }),
     supabase.from("clients").select("id, name").order("name"),
+    supabase
+      .from("audit_log")
+      .select("*")
+      .eq("action", "reconcile_missing_commission")
+      .order("created_at", { ascending: false })
+      .limit(20),
   ]);
 
   if (!rep) notFound();
   const clientNameById = new Map((clients ?? []).map((c) => [c.id, c.name]));
+  const myReconciliations = (reconciliations ?? []).filter((r) => (r.after as { rep_id?: string } | null)?.rep_id === id);
 
   return (
     <div className="flex-1">
@@ -155,22 +162,7 @@ export default async function RepDetailPage({ params }: { params: Promise<{ id: 
                           {(a.compensation_terms as { basis: string }).basis === "rr_share" ? "RR's share" : "client cash collected"}
                         </p>
                       ) : (
-                        <form action={setRepCompensationTerms} className="flex flex-wrap items-end gap-2">
-                          <input type="hidden" name="assignment_id" value={a.id} />
-                          <input type="hidden" name="rep_id" value={rep.id} />
-                          <Field label="Rate (e.g. 0.4)">
-                            <Input name="rate" type="number" step="0.01" min="0" max="1" required className="w-24 text-xs" />
-                          </Field>
-                          <Field label="Basis">
-                            <Select name="basis" className="text-xs">
-                              <option value="client_cash">% of client cash collected</option>
-                              <option value="rr_share">% of RR&apos;s share</option>
-                            </Select>
-                          </Field>
-                          <Button variant="secondary" className="!px-3 !py-1.5 text-xs">
-                            Set compensation
-                          </Button>
-                        </form>
+                        <SetCompensationForm assignmentId={a.id} repId={rep.id} />
                       )}
                     </div>
                   )}
@@ -180,6 +172,26 @@ export default async function RepDetailPage({ params }: { params: Promise<{ id: 
             {(assignments ?? []).length === 0 && <EmptyState title="Not assigned to any client yet." />}
           </ul>
         </section>
+
+        {myReconciliations.length > 0 && (
+          <section className="mt-8">
+            <SectionTitle>Commission reconciliation history</SectionTitle>
+            <ul className="space-y-2 text-sm">
+              {myReconciliations.map((r) => {
+                const after = r.after as { amount?: number; compensation_terms?: { rate: number; basis: string } } | null;
+                return (
+                  <li key={r.id}>
+                    <Card className="!py-2 text-xs text-muted">
+                      Backfilled {after?.amount != null ? `$${Number(after.amount).toLocaleString()}` : "a"} commission on collection{" "}
+                      {r.target_id?.slice(0, 8)} at {after?.compensation_terms ? `${(after.compensation_terms.rate * 100).toFixed(0)}%` : "—"} —{" "}
+                      {new Date(r.created_at).toLocaleString()}
+                    </Card>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
       </div>
     </div>
   );

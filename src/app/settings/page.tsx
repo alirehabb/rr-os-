@@ -1,9 +1,10 @@
 import { PageHeader, LinkCard } from "@/components/ui";
-import { SlidersHorizontal, Target, FlaskConical } from "lucide-react";
+import { SlidersHorizontal, Target, FlaskConical, BellRing } from "lucide-react";
 
 const PAGES = [
   { href: "/settings/targets", label: "Founder Targets", desc: "Monthly revenue and deal goals for Founder Progress", icon: Target },
   { href: "/settings/rr-score", label: "RR Score Configuration", desc: "Weights for the leaderboard's overall score", icon: SlidersHorizontal },
+  { href: "/settings/chasing", label: "Automatic Chasing", desc: "Daily overdue-condition sweep, posts to Slack", icon: BellRing },
   { href: "/settings/demo", label: "Demo Data Mode", desc: "Populate the OS with a fictional scenario for testing", icon: FlaskConical },
 ];
 

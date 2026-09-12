@@ -59,6 +59,26 @@ export async function updateProspectStage(formData: FormData) {
   revalidatePath("/prospects");
 }
 
+// Kanban drag-and-drop — a lighter-weight stage move than the full detail
+// form. Dropping a card on "Signed" runs the exact same client-creation
+// automation as the explicit "Mark signed" button (never two code paths for
+// the same business event); every other stage is a plain column move.
+export async function moveProspectStage(prospectId: string, stage: ProspectStage) {
+  const supabase = await createClient();
+
+  if (stage === "signed") {
+    const { data: existing } = await supabase.from("prospects").select("company_name, converted_client_id, is_demo").eq("id", prospectId).single();
+    if (existing && !existing.converted_client_id) {
+      const clientId = await onboardNewClient(supabase, { name: existing.company_name, workflowType: "closing_only", isDemo: existing.is_demo });
+      await supabase.from("prospects").update({ stage: "signed", converted_client_id: clientId }).eq("id", prospectId);
+    }
+  } else {
+    await supabase.from("prospects").update({ stage }).eq("id", prospectId);
+  }
+
+  revalidatePath("/prospects");
+}
+
 // §7/§8.1 — signing links to exactly one Client 360 and starts onboarding
 // without losing the acquisition history; the prospect record is preserved,
 // not deleted or overwritten.
@@ -71,14 +91,14 @@ export async function convertProspectToClient(formData: FormData) {
 
   const { data: existing } = await supabase
     .from("prospects")
-    .select("converted_client_id")
+    .select("converted_client_id, is_demo")
     .eq("id", prospectId)
     .single();
   if (existing?.converted_client_id) {
     redirect(`/clients/${existing.converted_client_id}`);
   }
 
-  const clientId = await onboardNewClient(supabase, { name: companyName, workflowType });
+  const clientId = await onboardNewClient(supabase, { name: companyName, workflowType, isDemo: existing?.is_demo ?? false });
 
   await supabase
     .from("prospects")
