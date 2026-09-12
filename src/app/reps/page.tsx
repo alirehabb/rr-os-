@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createRep } from "./actions";
 import { PageHeader, LinkCard, Badge, Button, Input, Avatar } from "@/components/ui";
+import { getDemoMode } from "@/lib/demoMode";
 
 const STATUS_TONE = {
   application: "neutral",
@@ -19,10 +20,12 @@ const STATUS_TONE = {
 
 export default async function RepsPage() {
   const supabase = await createClient();
+  const demoMode = await getDemoMode(supabase);
   const { data: reps } = await supabase
     .from("reps")
     .select("id, full_name, email, recruiting_status, capabilities, is_demo")
     .eq("is_benchmark", false)
+    .eq("is_demo", demoMode)
     .order("created_at", { ascending: false });
 
   return (

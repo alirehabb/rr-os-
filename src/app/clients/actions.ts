@@ -53,21 +53,63 @@ export async function updateLifecycleState(formData: FormData) {
   revalidatePath("/");
 }
 
+// Fulfillment → Talent matching is the next real step, not decoration:
+// completing fulfillment with no rep assigned yet immediately raises the
+// action the founder actually needs to take, instead of leaving the account
+// stalled with no visible next step.
 export async function markFulfillmentComplete(formData: FormData) {
   const clientId = String(formData.get("client_id"));
   const supabase = await createClient();
-  await supabase
+  const { data: client } = await supabase
     .from("clients")
     .update({ fulfillment_completed_at: new Date().toISOString() })
     .eq("id", clientId)
-    .is("fulfillment_completed_at", null);
+    .is("fulfillment_completed_at", null)
+    .select("name")
+    .single();
+
+  if (client) {
+    const { count } = await supabase.from("rep_assignments").select("*", { count: "exact", head: true }).eq("client_id", clientId);
+    if (!count) {
+      await supabase.from("action_items").insert({
+        title: `Match a rep for ${client.name}`,
+        reason: "Fulfillment is complete — this account has no rep assigned yet and cannot go live without one.",
+        client_id: clientId,
+        deadline_at: new Date(Date.now() + 7 * 86400000).toISOString(),
+      });
+    }
+  }
+
   revalidatePath(`/clients/${clientId}`);
   revalidatePath("/");
 }
 
+// §8.3 — going live with no active rep is a broken account, not a milestone.
+// This enforces the chain instead of just recording a timestamp: fulfillment
+// → rep matched → trial reviewed active → THEN live.
 export async function markGoLiveComplete(formData: FormData) {
   const clientId = String(formData.get("client_id"));
   const supabase = await createClient();
+
+  const { data: activeAssignment } = await supabase
+    .from("rep_assignments")
+    .select("id")
+    .eq("client_id", clientId)
+    .eq("status", "active")
+    .limit(1)
+    .maybeSingle();
+
+  if (!activeAssignment) {
+    const { data: client } = await supabase.from("clients").select("name").eq("id", clientId).single();
+    await supabase.from("action_items").insert({
+      title: `Cannot go live: ${client?.name ?? "client"} has no active rep`,
+      reason: "Go-live was attempted before any rep completed trial review as active. Assign and confirm a rep first.",
+      client_id: clientId,
+    });
+    revalidatePath(`/clients/${clientId}`);
+    return;
+  }
+
   await supabase
     .from("clients")
     .update({ go_live_completed_at: new Date().toISOString(), lifecycle_state: "live" })

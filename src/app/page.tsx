@@ -37,14 +37,29 @@ export default async function Home() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ data: demo }, { data: profile }, { data: targets }, { data: clientOptions }] = await Promise.all([
-    supabase.from("demo_mode").select("enabled").limit(1).single(),
-    supabase.from("profiles").select("full_name").eq("id", user.id).single(),
-    supabase.from("founder_targets").select("*").limit(1).single(),
-    supabase.from("clients").select("id, name").order("name"),
-  ]);
+  const { data: demo } = await supabase.from("demo_mode").select("enabled").limit(1).single();
   const demoMode = !!demo?.enabled;
+
+  const [{ data: profile }, { data: targets }, { data: clientOptions }, { count: realClientCount }, { data: rrScoreConfig }, { count: connectedCount }] =
+    await Promise.all([
+      supabase.from("profiles").select("full_name").eq("id", user.id).single(),
+      supabase.from("founder_targets").select("*").limit(1).single(),
+      supabase.from("clients").select("id, name").eq("is_demo", demoMode).order("name"),
+      // Setup completeness is about the REAL business, independent of
+      // whether demo mode happens to be toggled on for exploration.
+      supabase.from("clients").select("*", { count: "exact", head: true }).eq("is_demo", false),
+      supabase.from("rr_score_config").select("configured").limit(1).single(),
+      supabase.from("connections").select("*", { count: "exact", head: true }).is("client_id", null).eq("status", "connected"),
+    ]);
   const firstName = (profile?.full_name ?? "there").split(" ")[0];
+
+  const setupSteps = [
+    { label: "Set a monthly revenue target", href: "/settings/targets", done: !!targets?.monthly_revenue_target },
+    { label: "Configure RR Score weights", href: "/settings/rr-score", done: !!rrScoreConfig?.configured },
+    { label: "Connect at least one integration", href: "/connections", done: (connectedCount ?? 0) > 0 },
+    { label: "Sign or convert your first real client", href: "/clients", done: (realClientCount ?? 0) > 0 },
+  ];
+  const setupIncomplete = setupSteps.some((s) => !s.done);
 
   const [pulse, queue, clocks, clientPulse, feed, today, cashTrend, callsTrend] = await Promise.all([
     getPulseTotals(demoMode),
@@ -102,7 +117,7 @@ export default async function Home() {
               <h2 className="text-sm font-semibold text-foreground">Command Queue</h2>
               {queue.length > 0 && <Badge tone="danger">{queue.length}</Badge>}
             </div>
-            <Link href="/brief" className="text-xs text-faint hover:text-muted">
+            <Link href="/command-center" className="text-xs text-faint hover:text-muted">
               View all →
             </Link>
           </div>
@@ -256,14 +271,33 @@ export default async function Home() {
         </Card>
       </div>
 
-      {/* Context banner */}
-      <Card className="mt-4 flex items-center justify-between bg-surface-subtle">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-faint">Keep going</p>
-          <p className="mt-0.5 text-sm font-medium text-foreground">{contextLine}</p>
-        </div>
-        <p className="hidden text-sm italic text-faint sm:block">&ldquo;A calm operator always wins.&rdquo;</p>
-      </Card>
+      {/* Context banner — setup incompleteness always wins over "nothing
+          urgent": those are two different truths and conflating them was
+          a real audit failure (calm feedback during an unconfigured OS). */}
+      {setupIncomplete ? (
+        <Card className="mt-4 border-warning/30 bg-warning-bg/40">
+          <p className="text-sm font-semibold text-warning">RR OS is not fully operational</p>
+          <ul className="mt-2 space-y-1.5">
+            {setupSteps
+              .filter((s) => !s.done)
+              .map((s) => (
+                <li key={s.label}>
+                  <Link href={s.href} className="text-sm text-foreground underline hover:text-warning">
+                    {s.label}
+                  </Link>
+                </li>
+              ))}
+          </ul>
+        </Card>
+      ) : (
+        <Card className="mt-4 flex items-center justify-between bg-surface-subtle">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-faint">Keep going</p>
+            <p className="mt-0.5 text-sm font-medium text-foreground">{contextLine}</p>
+          </div>
+          <p className="hidden text-sm italic text-faint sm:block">&ldquo;A calm operator always wins.&rdquo;</p>
+        </Card>
+      )}
     </div>
   );
 

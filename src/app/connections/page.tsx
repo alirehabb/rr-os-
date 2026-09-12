@@ -52,7 +52,7 @@ export default async function ConnectionsPage() {
                 ) : (
                   <form action={updateConnectionStatus} className="mt-2 flex gap-2">
                     <input type="hidden" name="id" value={c.id} />
-                    <Select name="status" defaultValue={c.status} className="!px-2 !py-1 text-xs">
+                    <Select key={c.status} name="status" defaultValue={c.status} className="!px-2 !py-1 text-xs">
                       <option value="disconnected">Disconnected</option>
                       <option value="access_pending">Access pending</option>
                       <option value="degraded">Degraded</option>

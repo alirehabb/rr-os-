@@ -5,9 +5,13 @@ import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { springSnappy } from "@/components/motion";
+import { createClient } from "@/lib/supabase/client";
+
+type Result = { label: string; href: string; hint?: string; isDemo?: boolean };
 
 const ROUTES: { label: string; href: string; hint?: string }[] = [
-  { label: "Home", href: "/", hint: "RR Pulse & Command Queue" },
+  { label: "Home", href: "/", hint: "Company overview" },
+  { label: "Command Center", href: "/command-center", hint: "Actionable work" },
   { label: "My Workspace", href: "/my" },
   { label: "Morning Brief", href: "/brief" },
   { label: "RR CRM", href: "/prospects", hint: "Acquisition pipeline" },
@@ -26,8 +30,40 @@ export default function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
+  const [entityResults, setEntityResults] = useState<Result[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+
+  // Real entity search — clients, prospects, reps, opportunities, deals —
+  // not just static navigation. Debounced against the browser Supabase
+  // client directly (RLS already scopes this to what the founder can see).
+  useEffect(() => {
+    if (query.trim().length < 2) {
+      setEntityResults([]);
+      return;
+    }
+    const supabase = createClient();
+    const like = `%${query}%`;
+    const id = setTimeout(async () => {
+      const [{ data: clients }, { data: prospects }, { data: reps }, { data: opps }, { data: deals }] = await Promise.all([
+        supabase.from("clients").select("id, name, is_demo").ilike("name", like).limit(4),
+        supabase.from("prospects").select("id, company_name, is_demo").ilike("company_name", like).limit(4),
+        supabase.from("reps").select("id, full_name, is_demo").ilike("full_name", like).limit(4),
+        supabase.from("opportunities").select("id, prospect_name, is_demo").ilike("prospect_name", like).limit(4),
+        supabase.from("deals").select("id, value, status, opportunity_id, is_demo").limit(4),
+      ]);
+      setEntityResults([
+        ...(clients ?? []).map((c) => ({ label: c.name, href: `/clients/${c.id}`, hint: "Client", isDemo: c.is_demo })),
+        ...(prospects ?? []).map((p) => ({ label: p.company_name, href: `/prospects/${p.id}`, hint: "Prospect", isDemo: p.is_demo })),
+        ...(reps ?? []).map((r) => ({ label: r.full_name, href: `/reps/${r.id}`, hint: "Talent", isDemo: r.is_demo })),
+        ...(opps ?? []).map((o) => ({ label: o.prospect_name, href: `/opportunities/${o.id}`, hint: "Opportunity", isDemo: o.is_demo })),
+        ...(deals ?? [])
+          .filter((d) => String(d.value).includes(query) || d.status.includes(query.toLowerCase()))
+          .map((d) => ({ label: `$${d.value} · ${d.status}`, href: `/opportunities/${d.opportunity_id}`, hint: "Deal", isDemo: d.is_demo })),
+      ]);
+    }, 200);
+    return () => clearTimeout(id);
+  }, [query]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -49,7 +85,10 @@ export default function CommandPalette() {
     }
   }, [open]);
 
-  const filtered = ROUTES.filter((r) => r.label.toLowerCase().includes(query.toLowerCase()));
+  const filtered: Result[] = [
+    ...entityResults,
+    ...ROUTES.filter((r) => r.label.toLowerCase().includes(query.toLowerCase())),
+  ];
 
   function go(href: string) {
     setOpen(false);
@@ -125,8 +164,11 @@ export default function CommandPalette() {
                     {i === selected && (
                       <motion.span layoutId="palette-active" className="absolute inset-0 rounded-xl bg-accent/12" transition={springSnappy} />
                     )}
-                    <span className="relative">{r.label}</span>
-                    {r.hint && <span className="relative text-xs text-faint">{r.hint}</span>}
+                    <span className="relative truncate">{r.label}</span>
+                    <span className="relative flex shrink-0 items-center gap-1.5 text-xs text-faint">
+                      {r.isDemo && <span className="rounded-full bg-demo/15 px-1.5 py-0.5 text-[10px] font-medium text-demo">Demo</span>}
+                      {r.hint}
+                    </span>
                   </button>
                 ))}
               </div>

@@ -26,7 +26,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: client }, { data: clock }, { data: handover }, { data: opportunities }] = await Promise.all([
+  const [{ data: client }, { data: clock }, { data: handover }, { data: opportunities }, { data: assignments }] = await Promise.all([
     supabase.from("clients").select("*").eq("id", id).single(),
     supabase.from("client_clocks").select("*").eq("client_id", id).single(),
     supabase.from("handover_items").select("*").eq("client_id", id).order("category"),
@@ -35,9 +35,15 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
       .select("id, prospect_name, stage, value, first_booked_at")
       .eq("client_id", id)
       .order("first_booked_at", { ascending: false }),
+    supabase.from("rep_assignments").select("id, rep_id, role, status").eq("client_id", id),
   ]);
 
   if (!client) notFound();
+
+  const repIds = (assignments ?? []).map((a) => a.rep_id);
+  const { data: assignedReps } = repIds.length ? await supabase.from("reps").select("id, full_name").in("id", repIds) : { data: [] };
+  const repNameByIdForAssignments = new Map((assignedReps ?? []).map((r) => [r.id, r.full_name]));
+  const hasActiveRep = (assignments ?? []).some((a) => a.status === "active");
 
   const blockers = (handover ?? []).filter((h) => h.blocks_readiness && h.status !== "verified" && h.status !== "not_applicable");
 
@@ -57,7 +63,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           action={
             <form action={updateLifecycleState} className="flex items-center gap-2">
               <input type="hidden" name="client_id" value={client.id} />
-              <Select name="lifecycle_state" defaultValue={client.lifecycle_state}>
+              <Select key={client.lifecycle_state} name="lifecycle_state" defaultValue={client.lifecycle_state}>
                 {LIFECYCLE_STATES.map((s) => (
                   <option key={s} value={s}>
                     {s.replace(/_/g, " ")}
@@ -77,7 +83,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
               key: "overview",
               label: "Overview",
               content: (
-                <section className="grid grid-cols-2 gap-4">
+                <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <Card>
                     <p className="text-xs font-medium uppercase tracking-wide text-faint">Fulfillment · signed + 48h</p>
                     {client.fulfillment_completed_at ? (
@@ -111,11 +117,36 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                         </p>
                         <form action={markGoLiveComplete} className="mt-2">
                           <input type="hidden" name="client_id" value={client.id} />
-                          <Button disabled={!client.fulfillment_completed_at} className="!px-3 !py-1 text-xs">
+                          <Button disabled={!client.fulfillment_completed_at || !hasActiveRep} className="!px-3 !py-1 text-xs">
                             Mark go-live complete
                           </Button>
                         </form>
+                        {client.fulfillment_completed_at && !hasActiveRep && (
+                          <p className="mt-1.5 text-xs text-faint">Blocked — no rep has completed trial review as active yet.</p>
+                        )}
                       </>
+                    )}
+                  </Card>
+                  <Card>
+                    <p className="text-xs font-medium uppercase tracking-wide text-faint">Rep assignment</p>
+                    {(assignments ?? []).length === 0 ? (
+                      <>
+                        <p className="mt-1.5 text-warning">No rep matched yet</p>
+                        <Link href="/reps" className="mt-2 inline-block text-xs text-accent underline">
+                          Go to Talent to match one →
+                        </Link>
+                      </>
+                    ) : (
+                      <ul className="mt-1.5 space-y-1">
+                        {(assignments ?? []).map((a) => (
+                          <li key={a.id} className="flex items-center justify-between text-sm">
+                            <Link href={`/reps/${a.rep_id}`} className="text-foreground hover:underline">
+                              {repNameByIdForAssignments.get(a.rep_id) ?? "Unknown"}
+                            </Link>
+                            <Badge tone={a.status === "active" ? "success" : "warning"}>{a.status}</Badge>
+                          </li>
+                        ))}
+                      </ul>
                     )}
                   </Card>
                 </section>
@@ -141,7 +172,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                           <form action={updateHandoverItemStatus} className="flex items-center gap-2">
                             <input type="hidden" name="id" value={h.id} />
                             <input type="hidden" name="client_id" value={client.id} />
-                            <Select name="status" defaultValue={h.status} className="!px-2 !py-1 text-xs">
+                            <Select key={h.status} name="status" defaultValue={h.status} className="!px-2 !py-1 text-xs">
                               <option value="missing">missing</option>
                               <option value="submitted">submitted</option>
                               <option value="verified">verified</option>

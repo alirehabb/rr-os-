@@ -18,7 +18,14 @@ export default async function MyWorkspacePage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
+  const isFounder = (roles ?? []).some((r) => r.role === "founder");
+
   const { data: rep } = await supabase.from("reps").select("*").eq("profile_id", user.id).single();
+
+  // Founder OS is Home — "My Workspace" is a rep concept and would otherwise
+  // dead-end for a founder with no linked rep profile of their own.
+  if (!rep && isFounder) redirect("/");
 
   if (!rep) {
     return (

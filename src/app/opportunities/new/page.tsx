@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createOpportunity } from "../actions";
-import { PageHeader, Field, Input, Select, Button } from "@/components/ui";
+import { getDemoMode } from "@/lib/demoMode";
+import { PageHeader, Field, Input, Select, Button, EmptyState } from "@/components/ui";
 
 export default async function NewOpportunityPage({
   searchParams,
@@ -9,7 +11,22 @@ export default async function NewOpportunityPage({
 }) {
   const { client_id } = await searchParams;
   const supabase = await createClient();
-  const { data: clients } = await supabase.from("clients").select("id, name").order("name");
+  const demoMode = await getDemoMode(supabase);
+  const { data: clients } = await supabase.from("clients").select("id, name").eq("is_demo", demoMode).order("name");
+
+  if (!clients || clients.length === 0) {
+    return (
+      <div className="flex-1">
+        <div className="mx-auto max-w-lg px-6 py-10">
+          <PageHeader title="Log a booked call" />
+          <EmptyState title="No clients yet" hint="A booked call has to belong to a signed client — sign one first." />
+          <Link href="/clients" className="mt-4 inline-block text-sm text-accent underline">
+            Go to Clients →
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1">
@@ -18,7 +35,7 @@ export default async function NewOpportunityPage({
         <form action={createOpportunity} className="space-y-4 rounded-2xl border border-border bg-surface p-6 shadow-sm shadow-black/[0.03]">
           <Field label="Client">
             <Select name="client_id" defaultValue={client_id} required className="w-full">
-              {(clients ?? []).map((c) => (
+              {clients.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>

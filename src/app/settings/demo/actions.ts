@@ -65,15 +65,16 @@ export async function enableDemoMode() {
   }
 
   const repsSeed = [
-    { name: "Marcus Chen", email: "demo-marcus@example.invalid", capabilities: ["closer"] },
-    { name: "Sarah Ibrahim", email: "demo-sarah@example.invalid", capabilities: ["closer"] },
-    { name: "Dalia Reyes", email: "demo-dalia@example.invalid", capabilities: ["closer", "setter"] },
+    { name: "Marcus Chen", email: "demo-marcus@example.invalid", capabilities: ["closer"], status: "confirmed_active" as const },
+    { name: "Sarah Ibrahim", email: "demo-sarah@example.invalid", capabilities: ["closer"], status: "confirmed_active" as const },
+    { name: "Dalia Reyes", email: "demo-dalia@example.invalid", capabilities: ["closer", "setter"], status: "live_trial" as const },
+    { name: "Priya Nair", email: "demo-priya@example.invalid", capabilities: ["closer"], status: "application" as const },
   ];
   const repIds: Record<string, string> = {};
   for (const r of repsSeed) {
     const { data: rep } = await supabase
       .from("reps")
-      .insert({ full_name: r.name, email: r.email, capabilities: r.capabilities, recruiting_status: "confirmed_active", is_demo: true })
+      .insert({ full_name: r.name, email: r.email, capabilities: r.capabilities, recruiting_status: r.status, is_demo: true })
       .select("id")
       .single();
     if (rep) repIds[r.name] = rep.id;
@@ -84,9 +85,11 @@ export async function enableDemoMode() {
   // terms instead of paying a rep, which is real behavior but not useful demo.
   const assignmentIds: Record<string, string> = {};
   const assignmentsSeed = [
-    { rep: "Marcus Chen", client: "Azgari", rate: 0.5, basis: "rr_share" as const, activeFrom: daysAgo(80) },
-    { rep: "Sarah Ibrahim", client: "Drivia", rate: 0.4, basis: "rr_share" as const, activeFrom: daysAgo(55) },
-    { rep: "Dalia Reyes", client: "Apex Solutions", rate: null, basis: null, activeFrom: null },
+    { rep: "Marcus Chen", client: "Azgari", rate: 0.5, basis: "rr_share" as const, activeFrom: daysAgo(80), status: "active" as const, trialStartedAt: null as string | null },
+    { rep: "Sarah Ibrahim", client: "Drivia", rate: 0.4, basis: "rr_share" as const, activeFrom: daysAgo(55), status: "active" as const, trialStartedAt: null as string | null },
+    // Dalia is mid-trial on Apex — exercises the fulfillment→matching→trial
+    // step of the chain instead of every rep already being confirmed active.
+    { rep: "Dalia Reyes", client: "Apex Solutions", rate: null, basis: null, activeFrom: null, status: "trial" as const, trialStartedAt: daysAgo(3) },
   ];
   for (const a of assignmentsSeed) {
     const { data: assignment } = await supabase
@@ -95,8 +98,9 @@ export async function enableDemoMode() {
         rep_id: repIds[a.rep],
         client_id: clientIds[a.client],
         role: "closer",
-        status: a.activeFrom ? "active" : "training",
+        status: a.status,
         active_from: a.activeFrom,
+        trial_started_at: a.trialStartedAt,
         compensation_terms: a.rate ? { type: "percentage", rate: a.rate, basis: a.basis } : null,
       })
       .select("id")
@@ -105,12 +109,14 @@ export async function enableDemoMode() {
   }
 
   const oppsSeed = [
-    { client: "Azgari", prospect: "Broker Intro — Coastal Partners", stage: "won" as const, value: 18000, ownerRep: "Marcus Chen", daysBack: 12 },
-    { client: "Azgari", prospect: "Candidate Review — J. Whitfield", stage: "follow_up" as const, value: 9000, ownerRep: "Marcus Chen", daysBack: 2 },
-    { client: "Drivia", prospect: "Proposal Follow-up — Nexa Corp", stage: "follow_up" as const, value: 12000, ownerRep: "Sarah Ibrahim", daysBack: 1 },
-    { client: "Drivia", prospect: "Discovery — Fielding Co", stage: "won" as const, value: 24000, ownerRep: "Sarah Ibrahim", daysBack: 20 },
-    { client: "Apex Solutions", prospect: "Apex Discovery Call", stage: "booked" as const, value: null, ownerRep: "Dalia Reyes", daysBack: 0 },
-    { client: "OpenPro", prospect: "Liv180 Deal — Payment Pending", stage: "won" as const, value: 15000, ownerRep: "Marcus Chen", daysBack: 30 },
+    { client: "Azgari", prospect: "Broker Intro — Coastal Partners", stage: "won" as const, outcome: "completed_won" as const, value: 18000, ownerRep: "Marcus Chen", daysBack: 12 },
+    { client: "Azgari", prospect: "Candidate Review — J. Whitfield", stage: "follow_up" as const, outcome: "completed_follow_up" as const, value: 9000, ownerRep: "Marcus Chen", daysBack: 2 },
+    { client: "Drivia", prospect: "Proposal Follow-up — Nexa Corp", stage: "follow_up" as const, outcome: "completed_follow_up" as const, value: 12000, ownerRep: "Sarah Ibrahim", daysBack: 1 },
+    { client: "Drivia", prospect: "Discovery — Fielding Co", stage: "won" as const, outcome: "completed_won" as const, value: 24000, ownerRep: "Sarah Ibrahim", daysBack: 20 },
+    { client: "Drivia", prospect: "Cold Outreach — Baymark Inc", stage: "lost" as const, outcome: "completed_lost" as const, value: 8000, ownerRep: "Sarah Ibrahim", daysBack: 6 },
+    { client: "Apex Solutions", prospect: "Apex Discovery Call", stage: "booked" as const, outcome: "pending" as const, value: null, ownerRep: "Dalia Reyes", daysBack: 0 },
+    { client: "Apex Solutions", prospect: "Referral — Turner Group", stage: "follow_up" as const, outcome: "no_show" as const, value: null, ownerRep: "Dalia Reyes", daysBack: 4 },
+    { client: "OpenPro", prospect: "Liv180 Deal — Payment Pending", stage: "won" as const, outcome: "completed_won" as const, value: 15000, ownerRep: "Marcus Chen", daysBack: 30 },
   ];
 
   for (const o of oppsSeed) {
@@ -129,16 +135,19 @@ export async function enableDemoMode() {
       .single();
     if (!opp) continue;
 
-    const outcome = o.stage === "won" ? "completed_won" : o.stage === "follow_up" ? "completed_follow_up" : "pending";
     await supabase.from("calls").insert({
       opportunity_id: opp.id,
       scheduled_at: daysAgo(o.daysBack),
-      outcome,
-      logged_at: outcome !== "pending" ? daysAgo(o.daysBack) : null,
-      agreed_next_action: outcome === "completed_follow_up" ? "Send updated proposal" : null,
+      outcome: o.outcome,
+      logged_at: o.outcome !== "pending" ? daysAgo(o.daysBack) : null,
+      agreed_next_action: o.outcome === "completed_follow_up" ? "Send updated proposal" : o.outcome === "no_show" ? "Rebook — no show" : null,
       deal_value: o.stage === "won" ? o.value : null,
       is_demo: true,
     });
+
+    if (o.stage === "lost" && o.value) {
+      await supabase.from("deals").insert({ opportunity_id: opp.id, value: o.value, status: "lost", is_demo: true });
+    }
 
     if (o.stage === "won" && o.value) {
       const { data: deal } = await supabase

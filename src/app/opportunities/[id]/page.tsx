@@ -29,9 +29,10 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
   const { data: opp } = await supabase.from("opportunities").select("*").eq("id", id).single();
   if (!opp) notFound();
 
-  const [{ data: calls }, { data: client }] = await Promise.all([
+  const [{ data: calls }, { data: client }, { data: owner }] = await Promise.all([
     supabase.from("calls").select("*").eq("opportunity_id", id).order("scheduled_at", { ascending: false }),
     supabase.from("clients").select("name").eq("id", opp.client_id).single(),
+    opp.owner_rep_id ? supabase.from("reps").select("full_name").eq("id", opp.owner_rep_id).single() : Promise.resolve({ data: null }),
   ]);
   const clientName = client?.name ?? "Unknown client";
 
@@ -43,6 +44,8 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
           subtitle={
             <>
               {clientName} · <Badge tone={STAGE_TONE[opp.stage]}>{opp.stage.replace("_", " ")}</Badge>
+              {" · "}
+              {owner ? <span>Owner: {owner.full_name}</span> : <span className="text-danger">Unowned — no active closer to route to</span>}
             </>
           }
         />

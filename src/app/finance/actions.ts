@@ -95,10 +95,12 @@ export async function setRepCompensationTerms(formData: FormData) {
   const assignmentId = String(formData.get("assignment_id"));
   const rate = Number(formData.get("rate"));
   const basis = String(formData.get("basis"));
+  const repId = String(formData.get("rep_id") ?? "");
   const supabase = await createClient();
   await supabase
     .from("rep_assignments")
     .update({ compensation_terms: { type: "percentage", rate, basis } })
     .eq("id", assignmentId);
   revalidatePath("/finance");
+  if (repId) revalidatePath(`/reps/${repId}`);
 }

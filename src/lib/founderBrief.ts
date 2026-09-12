@@ -20,8 +20,9 @@ export type FounderBrief = {
 
 // §17.2 — overnight sweep. Every number here is a real query result; if
 // nothing happened, the caller renders that honestly rather than inventing
-// activity (spec explicitly forbids manufacturing activity).
-export async function buildFounderBrief(supabase: SupabaseClient<Database>): Promise<FounderBrief> {
+// activity (spec explicitly forbids manufacturing activity). demoMode keeps
+// this in sync with every other view: real and demo numbers never blend.
+export async function buildFounderBrief(supabase: SupabaseClient<Database>, demoMode: boolean): Promise<FounderBrief> {
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfYesterday = new Date(startOfToday.getTime() - 24 * 60 * 60 * 1000);
@@ -41,23 +42,26 @@ export async function buildFounderBrief(supabase: SupabaseClient<Database>): Pro
     { data: newProspects },
     { data: queueItems },
   ] = await Promise.all([
-    supabase.from("calls").select("id").gte("logged_at", startOfYesterday.toISOString()).lt("logged_at", startOfToday.toISOString()),
-    supabase.from("collections").select("amount").gte("reported_at", startOfYesterday.toISOString()).lt("reported_at", startOfToday.toISOString()),
-    supabase.from("calls").select("id").gte("scheduled_at", startOfToday.toISOString()).lt("scheduled_at", endOfToday.toISOString()),
+    supabase.from("calls").select("id").eq("is_demo", demoMode).gte("logged_at", startOfYesterday.toISOString()).lt("logged_at", startOfToday.toISOString()),
+    supabase.from("collections").select("amount").eq("is_demo", demoMode).gte("reported_at", startOfYesterday.toISOString()).lt("reported_at", startOfToday.toISOString()),
+    supabase.from("calls").select("id").eq("is_demo", demoMode).gte("scheduled_at", startOfToday.toISOString()).lt("scheduled_at", endOfToday.toISOString()),
     supabase
       .from("opportunities")
       .select("id, prospect_name, stage")
+      .eq("is_demo", demoMode)
       .in("stage", ["booked", "follow_up"]),
     supabase.from("client_clocks").select("*"),
-    supabase.from("clients").select("id, name"),
-    supabase.from("ledger_entries").select("client_id, entry_type, amount"),
-    supabase.from("wallet_entries").select("amount").in("status", ["payable", "approved"]),
-    supabase.from("reps").select("id").eq("recruiting_status", "application"),
-    supabase.from("prospects").select("id").gte("created_at", startOfYesterday.toISOString()),
-    supabase.from("action_items").select("id").in("status", ["open", "in_progress"]),
+    supabase.from("clients").select("id, name").eq("is_demo", demoMode),
+    supabase.from("ledger_entries").select("client_id, entry_type, amount").eq("is_demo", demoMode),
+    supabase.from("wallet_entries").select("amount").eq("is_demo", demoMode).in("status", ["payable", "approved"]),
+    supabase.from("reps").select("id").eq("is_demo", demoMode).eq("recruiting_status", "application"),
+    supabase.from("prospects").select("id").eq("is_demo", demoMode).gte("created_at", startOfYesterday.toISOString()),
+    supabase.from("action_items").select("id").eq("is_demo", demoMode).in("status", ["open", "in_progress"]),
   ]);
 
   const clientNameById = new Map((clients ?? []).map((c) => [c.id, c.name]));
+  const scopedClientIds = new Set(clientNameById.keys());
+  const scopedClocks = (clocks ?? []).filter((c) => c.client_id && scopedClientIds.has(c.client_id));
 
   // overdue follow-up: nonterminal opportunity whose calls all have a past next_call_at
   const oppIds = (overdueOpps ?? []).map((o) => o.id);
@@ -97,11 +101,13 @@ export async function buildFounderBrief(supabase: SupabaseClient<Database>): Pro
   const { data: handoverBlockers } = await supabase
     .from("handover_items")
     .select("client_id")
+    .eq("is_demo", demoMode)
     .eq("blocks_readiness", true)
     .not("status", "in", "(verified,not_applicable)");
 
   const blockerCounts = new Map<string, number>();
   for (const h of handoverBlockers ?? []) {
+    if (!scopedClientIds.has(h.client_id)) continue;
     blockerCounts.set(h.client_id, (blockerCounts.get(h.client_id) ?? 0) + 1);
   }
   const onboardingBlockers = Array.from(blockerCounts.entries()).map(([clientId, blockerCount]) => ({
@@ -112,7 +118,7 @@ export async function buildFounderBrief(supabase: SupabaseClient<Database>): Pro
 
   const approachingDeadlines: FounderBrief["approachingDeadlines"] = [];
   const breachedDeadlines: FounderBrief["breachedDeadlines"] = [];
-  for (const c of clocks ?? []) {
+  for (const c of scopedClocks) {
     if (!c.client_id) continue;
     const clientName = clientNameById.get(c.client_id) ?? "Unknown";
     if (!c.fulfillment_completed_at && c.fulfillment_deadline) {

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getDemoMode } from "@/lib/demoMode";
 import { PageHeader, LinkCard, Badge, EmptyState } from "@/components/ui";
 
 const STAGE_TONE = {
@@ -11,12 +12,14 @@ const STAGE_TONE = {
 
 export default async function OpportunitiesPage() {
   const supabase = await createClient();
+  const demoMode = await getDemoMode(supabase);
   const [{ data: opportunities }, { data: clients }] = await Promise.all([
     supabase
       .from("opportunities")
       .select("id, prospect_name, stage, value, client_id, is_demo")
+      .eq("is_demo", demoMode)
       .order("first_booked_at", { ascending: false }),
-    supabase.from("clients").select("id, name"),
+    supabase.from("clients").select("id, name").eq("is_demo", demoMode),
   ]);
   const clientNameById = new Map((clients ?? []).map((c) => [c.id, c.name]));
 

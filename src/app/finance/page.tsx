@@ -7,6 +7,7 @@ import {
   recordPayoutPaid,
   setClientRateBasis,
 } from "./actions";
+import { getDemoMode } from "@/lib/demoMode";
 import { PageHeader, SectionTitle, Card, Badge, Button, Input, EmptyState } from "@/components/ui";
 
 function money(n: number) {
@@ -15,15 +16,16 @@ function money(n: number) {
 
 export default async function FinancePage() {
   const supabase = await createClient();
+  const demoMode = await getDemoMode(supabase);
 
   const [{ data: deals }, { data: collections }, { data: clients }, { data: opportunities }, { data: reps }, { data: wallets }] =
     await Promise.all([
-      supabase.from("deals").select("*").order("created_at", { ascending: false }),
-      supabase.from("collections").select("*").order("reported_at", { ascending: false }),
-      supabase.from("clients").select("id, name, rr_rate_basis"),
-      supabase.from("opportunities").select("id, prospect_name, client_id"),
-      supabase.from("reps").select("id, full_name"),
-      supabase.from("wallet_entries").select("*").order("created_at", { ascending: false }),
+      supabase.from("deals").select("*").eq("is_demo", demoMode).order("created_at", { ascending: false }),
+      supabase.from("collections").select("*").eq("is_demo", demoMode).order("reported_at", { ascending: false }),
+      supabase.from("clients").select("id, name, rr_rate_basis").eq("is_demo", demoMode),
+      supabase.from("opportunities").select("id, prospect_name, client_id").eq("is_demo", demoMode),
+      supabase.from("reps").select("id, full_name").eq("is_demo", demoMode),
+      supabase.from("wallet_entries").select("*").eq("is_demo", demoMode).order("created_at", { ascending: false }),
     ]);
 
   const oppById = new Map((opportunities ?? []).map((o) => [o.id, o]));

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
+import { getDemoMode } from "@/lib/demoMode";
 import { PageHeader, SectionTitle, ProgressBar, Badge } from "@/components/ui";
 
 function money(n: number) {
@@ -19,14 +20,18 @@ type RepRow = {
 
 export default async function LeaderboardPage() {
   const supabase = await createClient();
+  const demoMode = await getDemoMode(supabase);
 
   const [{ data: reps }, { data: opportunities }, { data: ledger }, { data: deals }, { data: collections }, { data: config }] =
     await Promise.all([
-      supabase.from("reps").select("id, full_name, is_benchmark, benchmark_stats"),
-      supabase.from("opportunities").select("id, owner_rep_id, stage"),
-      supabase.from("ledger_entries").select("rep_id, entry_type, amount"),
-      supabase.from("deals").select("id, opportunity_id"),
-      supabase.from("collections").select("deal_id, amount, status"),
+      // Benchmark rows are permanent hypothetical reference profiles
+      // (is_demo=false always) — shown regardless of demo mode, clearly
+      // labeled, never mixed into real totals.
+      supabase.from("reps").select("id, full_name, is_benchmark, benchmark_stats").or(`is_benchmark.eq.true,is_demo.eq.${demoMode}`),
+      supabase.from("opportunities").select("id, owner_rep_id, stage").eq("is_demo", demoMode),
+      supabase.from("ledger_entries").select("rep_id, entry_type, amount").eq("is_demo", demoMode),
+      supabase.from("deals").select("id, opportunity_id").eq("is_demo", demoMode),
+      supabase.from("collections").select("deal_id, amount, status").eq("is_demo", demoMode),
       supabase.from("rr_score_config").select("*").limit(1).single(),
     ]);
 
@@ -34,7 +39,7 @@ export default async function LeaderboardPage() {
     .filter((o) => o.stage !== "won" && o.stage !== "lost")
     .map((o) => o.id);
   const { data: nonTerminalCalls } = nonTerminalOppIds.length
-    ? await supabase.from("calls").select("opportunity_id, agreed_next_action, scheduled_at").in("opportunity_id", nonTerminalOppIds)
+    ? await supabase.from("calls").select("opportunity_id, agreed_next_action, scheduled_at").eq("is_demo", demoMode).in("opportunity_id", nonTerminalOppIds)
     : { data: [] };
 
   // §21.2 — only two components have a real data source tonight (close rate,

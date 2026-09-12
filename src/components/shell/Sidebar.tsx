@@ -26,17 +26,21 @@ export default function Sidebar({
   queueCount,
   userName,
   userEmail,
+  mobileOpen = false,
+  onClose,
 }: {
   isFounder: boolean;
   queueCount: number;
   userName: string;
   userEmail: string;
+  mobileOpen?: boolean;
+  onClose?: () => void;
 }) {
   const pathname = usePathname();
 
   const primary: NavItem[] = [
     { href: "/", label: "Home", icon: Home },
-    { href: "/", label: "Command Queue", icon: ListChecks, badge: queueCount },
+    { href: "/command-center", label: "Command Center", icon: ListChecks, badge: queueCount },
     { href: "/my", label: "My Workspace", icon: Briefcase },
   ];
 
@@ -75,7 +79,13 @@ export default function Sidebar({
   }
 
   return (
-    <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-border bg-sidebar">
+    <>
+      {mobileOpen && <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={onClose} />}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex h-screen w-60 shrink-0 flex-col border-r border-border bg-sidebar transition-transform duration-200 lg:static lg:translate-x-0 ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
       <div className="flex items-center gap-2 px-5 py-5">
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-sm font-bold text-accent-fg">
           R
@@ -84,12 +94,12 @@ export default function Sidebar({
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 pb-4">
-        <NavGroup items={primary} isActive={isActive} />
+        <NavGroup items={primary} isActive={isActive} onNavigate={onClose} />
 
         {founderGroups.map((group) => (
           <div key={group.label} className="mt-5">
             <p className="mb-1.5 px-2 text-[11px] font-medium uppercase tracking-wider text-faint">{group.label}</p>
-            <NavGroup items={group.items} isActive={isActive} />
+            <NavGroup items={group.items} isActive={isActive} onNavigate={onClose} />
           </div>
         ))}
       </nav>
@@ -105,11 +115,12 @@ export default function Sidebar({
           </div>
         </div>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }
 
-function NavGroup({ items, isActive }: { items: NavItem[]; isActive: (href: string) => boolean }) {
+function NavGroup({ items, isActive, onNavigate }: { items: NavItem[]; isActive: (href: string) => boolean; onNavigate?: () => void }) {
   return (
     <div className="space-y-0.5">
       {items.map((item) => {
@@ -119,6 +130,7 @@ function NavGroup({ items, isActive }: { items: NavItem[]; isActive: (href: stri
           <Link
             key={item.label}
             href={item.href}
+            onClick={onNavigate}
             className={`group relative flex items-center justify-between rounded-xl px-2.5 py-1.5 text-sm transition-colors ${
               active ? "font-medium text-accent" : "text-muted hover:bg-surface-subtle hover:text-foreground"
             }`}

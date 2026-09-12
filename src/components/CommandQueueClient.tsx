@@ -25,7 +25,7 @@ function money(n: number) {
 // Command Queue completion is the single most-emphasized interaction in the
 // design brief: resolve smoothly, let remaining priorities reposition, give
 // restrained success feedback — not a full-page revalidation flash.
-export default function CommandQueueClient({ items }: { items: QueueItem[] }) {
+export default function CommandQueueClient({ items, limit = 7 }: { items: QueueItem[]; limit?: number }) {
   const [optimisticItems, removeItem] = useOptimistic(items, (state, id: string) => state.filter((i) => i.id !== id));
   const [, startTransition] = useTransition();
   const toast = useToast();
@@ -41,7 +41,7 @@ export default function CommandQueueClient({ items }: { items: QueueItem[] }) {
   return (
     <ul className="divide-y divide-border">
       <AnimatePresence initial={false}>
-        {optimisticItems.slice(0, 7).map((item) => {
+        {optimisticItems.slice(0, limit).map((item) => {
           const overdue = item.deadline_at && new Date(item.deadline_at) < new Date();
           return (
             <motion.li

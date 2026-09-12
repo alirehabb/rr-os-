@@ -3,12 +3,44 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 
 type CallOutcome = Database["public"]["Enums"]["call_outcome"];
+type Supabase = SupabaseClient<Database>;
+
+// Simple round-robin pool: whichever active closer assigned to this client
+// currently owns the fewest open opportunities gets the next booking. No AI
+// matching — that's explicitly out of scope for now.
+async function pickRoundRobinCloser(supabase: Supabase, clientId: string): Promise<string | null> {
+  const { data: assignments } = await supabase
+    .from("rep_assignments")
+    .select("rep_id")
+    .eq("client_id", clientId)
+    .eq("role", "closer")
+    .eq("status", "active");
+  const closerIds = (assignments ?? []).map((a) => a.rep_id);
+  if (closerIds.length === 0) return null;
+  if (closerIds.length === 1) return closerIds[0];
+
+  const { data: openOpps } = await supabase
+    .from("opportunities")
+    .select("owner_rep_id")
+    .eq("client_id", clientId)
+    .in("owner_rep_id", closerIds)
+    .not("stage", "in", "(won,lost)");
+
+  const loadByRep = new Map(closerIds.map((id) => [id, 0]));
+  for (const o of openOpps ?? []) {
+    if (o.owner_rep_id) loadByRep.set(o.owner_rep_id, (loadByRep.get(o.owner_rep_id) ?? 0) + 1);
+  }
+  return [...loadByRep.entries()].sort((a, b) => a[1] - b[1])[0][0];
+}
 
 // §11.2 — a booking creates the opportunity; first_booked_at anchors it as
-// one opportunity even if follow-up calls attach later.
+// one opportunity even if follow-up calls attach later. Ownership goes to
+// whichever active closer takes the call — simple round-robin by current
+// open-opportunity count, not AI matching (out of scope for now).
 export async function createOpportunity(formData: FormData) {
   const client_id = String(formData.get("client_id"));
   const prospect_name = String(formData.get("prospect_name") ?? "").trim();
@@ -16,15 +48,28 @@ export async function createOpportunity(formData: FormData) {
   const source = String(formData.get("source") ?? "").trim() || null;
   const scheduled_at = String(formData.get("scheduled_at") ?? "");
 
+  if (!client_id) throw new Error("A client must be selected — create a client first");
   if (!prospect_name || !scheduled_at) throw new Error("Prospect name and call time are required");
 
   const supabase = await createClient();
+
+  const owner_rep_id = await pickRoundRobinCloser(supabase, client_id);
+
   const { data: opp, error } = await supabase
     .from("opportunities")
-    .insert({ client_id, prospect_name, prospect_contact, source, stage: "booked" })
+    .insert({ client_id, prospect_name, prospect_contact, source, stage: "booked", owner_rep_id })
     .select("id")
     .single();
   if (error) throw new Error(error.message);
+
+  if (!owner_rep_id) {
+    await supabase.from("action_items").insert({
+      title: `No closer available for ${prospect_name}`,
+      reason: "This booking has no active closer assigned to the client to route to. Assign a closer manually.",
+      client_id,
+      opportunity_id: opp.id,
+    });
+  }
 
   await supabase.from("calls").insert({
     opportunity_id: opp.id,

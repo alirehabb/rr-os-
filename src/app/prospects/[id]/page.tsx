@@ -55,7 +55,7 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
           <Card className="space-y-4">
             <input type="hidden" name="id" value={prospect.id} />
             <Field label="Stage">
-              <Select name="stage" defaultValue={prospect.stage} className="w-full">
+              <Select key={prospect.stage} name="stage" defaultValue={prospect.stage} className="w-full">
                 {STAGES.map((s) => (
                   <option key={s} value={s}>
                     {s.replace(/_/g, " ")}

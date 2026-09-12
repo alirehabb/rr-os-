@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { buildFounderBrief } from "@/lib/founderBrief";
+import { getDemoMode } from "@/lib/demoMode";
 import { PageHeader, SectionTitle, StatTile, Card } from "@/components/ui";
 import SendToSlackButton from "./SendToSlackButton";
 
@@ -10,7 +11,8 @@ function money(n: number) {
 
 export default async function BriefPage() {
   const supabase = await createClient();
-  const brief = await buildFounderBrief(supabase);
+  const demoMode = await getDemoMode(supabase);
+  const brief = await buildFounderBrief(supabase, demoMode);
 
   const nothingHappened =
     brief.yesterdayCallsLogged === 0 &&

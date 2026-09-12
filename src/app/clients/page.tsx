@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createClient_ } from "./actions";
+import { getDemoMode } from "@/lib/demoMode";
 import { PageHeader, LinkCard, Badge, Button, Input, Select, EmptyState } from "@/components/ui";
 
 const LIFECYCLE_TONE = {
@@ -15,9 +16,11 @@ const LIFECYCLE_TONE = {
 
 export default async function ClientsPage() {
   const supabase = await createClient();
+  const demoMode = await getDemoMode(supabase);
   const { data: clients } = await supabase
     .from("clients")
     .select("id, name, lifecycle_state, workflow_type, signed_at, is_demo")
+    .eq("is_demo", demoMode)
     .order("created_at", { ascending: false });
 
   return (

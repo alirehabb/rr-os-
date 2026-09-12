@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createProspect } from "./actions";
+import { getDemoMode } from "@/lib/demoMode";
 import { PageHeader, LinkCard, Badge, Button, Input, Select, EmptyState } from "@/components/ui";
 
 const STAGE_TONE = {
@@ -16,9 +17,11 @@ const STAGE_TONE = {
 
 export default async function ProspectsPage() {
   const supabase = await createClient();
+  const demoMode = await getDemoMode(supabase);
   const { data: prospects } = await supabase
     .from("prospects")
     .select("id, company_name, stage, source, next_action_date, is_demo")
+    .eq("is_demo", demoMode)
     .order("created_at", { ascending: false });
 
   return (

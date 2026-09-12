@@ -7,7 +7,8 @@ import {
   reviewTrial,
   linkRepProfile,
 } from "../actions";
-import { PageHeader, SectionTitle, Card, Badge, Button, Select, Textarea, EmptyState } from "@/components/ui";
+import { setRepCompensationTerms } from "@/app/finance/actions";
+import { PageHeader, SectionTitle, Card, Badge, Button, Select, Textarea, Input, Field, EmptyState } from "@/components/ui";
 
 const RECRUITING_STATUSES = [
   "application",
@@ -46,7 +47,7 @@ export default async function RepDetailPage({ params }: { params: Promise<{ id: 
           action={
             <form action={updateRecruitingStatus} className="flex items-center gap-2">
               <input type="hidden" name="rep_id" value={rep.id} />
-              <Select name="recruiting_status" defaultValue={rep.recruiting_status}>
+              <Select key={rep.recruiting_status} name="recruiting_status" defaultValue={rep.recruiting_status}>
                 {RECRUITING_STATUSES.map((s) => (
                   <option key={s} value={s}>
                     {s.replace(/_/g, " ")}
@@ -145,6 +146,34 @@ export default async function RepDetailPage({ params }: { params: Promise<{ id: 
                   )}
 
                   {a.trial_review_result && <p className="mt-2 text-xs text-faint">Review: {a.trial_review_result}</p>}
+
+                  {(a.status === "active" || a.status === "trial") && (
+                    <div className="mt-3 border-t border-border pt-3">
+                      {a.compensation_terms ? (
+                        <p className="text-xs text-muted">
+                          Compensation: {((a.compensation_terms as { rate: number }).rate * 100).toFixed(0)}% of{" "}
+                          {(a.compensation_terms as { basis: string }).basis === "rr_share" ? "RR's share" : "client cash collected"}
+                        </p>
+                      ) : (
+                        <form action={setRepCompensationTerms} className="flex flex-wrap items-end gap-2">
+                          <input type="hidden" name="assignment_id" value={a.id} />
+                          <input type="hidden" name="rep_id" value={rep.id} />
+                          <Field label="Rate (e.g. 0.4)">
+                            <Input name="rate" type="number" step="0.01" min="0" max="1" required className="w-24 text-xs" />
+                          </Field>
+                          <Field label="Basis">
+                            <Select name="basis" className="text-xs">
+                              <option value="client_cash">% of client cash collected</option>
+                              <option value="rr_share">% of RR&apos;s share</option>
+                            </Select>
+                          </Field>
+                          <Button variant="secondary" className="!px-3 !py-1.5 text-xs">
+                            Set compensation
+                          </Button>
+                        </form>
+                      )}
+                    </div>
+                  )}
                 </Card>
               </li>
             ))}

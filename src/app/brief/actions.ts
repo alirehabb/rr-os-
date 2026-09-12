@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { buildFounderBrief } from "@/lib/founderBrief";
+import { getDemoMode } from "@/lib/demoMode";
 import { slackPostMessage } from "@/lib/slack";
 
 function money(n: number) {
@@ -12,7 +13,8 @@ function money(n: number) {
 // "Slack version" of the truth.
 export async function sendBriefToSlack() {
   const supabase = await createClient();
-  const brief = await buildFounderBrief(supabase);
+  const demoMode = await getDemoMode(supabase);
+  const brief = await buildFounderBrief(supabase, demoMode);
 
   const priorities = [
     ...brief.breachedDeadlines.map((d) => `• ${d.clientName}: ${d.kind.replace("_", "-")} deadline breached`),

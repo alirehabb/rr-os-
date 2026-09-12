@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell } from "lucide-react";
+import { Bell, Menu } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import Sidebar from "./Sidebar";
@@ -16,6 +16,7 @@ export default function AppShellClient({
   userName,
   userEmail,
   demoActive,
+  notifications,
   children,
 }: {
   isFounder: boolean;
@@ -23,9 +24,16 @@ export default function AppShellClient({
   userName: string;
   userEmail: string;
   demoActive: boolean;
+  notifications: { id: string; title: string; href: string }[];
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  useEffect(() => {
+    setMobileNavOpen(false);
+    setNotifOpen(false);
+  }, [pathname]);
   const bare = pathname.startsWith("/login") || pathname.startsWith("/auth") || pathname.endsWith("/sign");
 
   const [now, setNow] = useState<Date | null>(null);
@@ -48,14 +56,30 @@ export default function AppShellClient({
   return (
     <ToastProvider>
     <div className="flex h-screen w-full overflow-hidden">
-      <Sidebar isFounder={isFounder} queueCount={queueCount} userName={userName} userEmail={userEmail} />
+      <Sidebar
+        isFounder={isFounder}
+        queueCount={queueCount}
+        userName={userName}
+        userEmail={userEmail}
+        mobileOpen={mobileNavOpen}
+        onClose={() => setMobileNavOpen(false)}
+      />
       <div className="flex min-w-0 flex-1 flex-col">
         <header
           className={`relative z-10 flex items-center justify-between px-6 py-3 transition-colors duration-200 ${
             scrolled ? "rr-glass border-b border-border" : "border-b border-transparent"
           }`}
         >
-          <CommandPalette />
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <button
+              aria-label="Open menu"
+              onClick={() => setMobileNavOpen(true)}
+              className="rounded-xl border border-border p-2 text-muted transition-colors hover:bg-surface-subtle hover:text-foreground lg:hidden"
+            >
+              <Menu size={16} />
+            </button>
+            <CommandPalette />
+          </div>
           <div className="flex items-center gap-3">
             {demoActive && (
               <Link
@@ -74,11 +98,48 @@ export default function AppShellClient({
                 </p>
               </div>
             )}
-            <Tooltip label="Notifications">
-              <button aria-label="Notifications" className="rounded-xl border border-border p-2 text-muted transition-colors hover:bg-surface-subtle hover:text-foreground">
-                <Bell size={16} />
-              </button>
-            </Tooltip>
+            <div className="relative">
+              <Tooltip label="Notifications">
+                <button
+                  aria-label="Notifications"
+                  onClick={() => setNotifOpen((v) => !v)}
+                  className="relative rounded-xl border border-border p-2 text-muted transition-colors hover:bg-surface-subtle hover:text-foreground"
+                >
+                  <Bell size={16} />
+                  {notifications.length > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-danger text-[10px] font-semibold leading-none text-white">
+                      {notifications.length}
+                    </span>
+                  )}
+                </button>
+              </Tooltip>
+              <AnimatePresence>
+                {notifOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.97 }}
+                    transition={{ duration: 0.12 }}
+                    className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl border border-border bg-surface shadow-xl"
+                  >
+                    <div className="border-b border-border px-3 py-2 text-xs font-medium uppercase tracking-wide text-faint">Overdue</div>
+                    {notifications.length === 0 ? (
+                      <p className="px-3 py-4 text-sm text-faint">Nothing overdue.</p>
+                    ) : (
+                      <ul className="max-h-80 overflow-y-auto">
+                        {notifications.map((n) => (
+                          <li key={n.id} className="border-b border-border last:border-0">
+                            <Link href={n.href} className="block px-3 py-2.5 text-sm text-foreground hover:bg-surface-subtle">
+                              {n.title}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </header>
         <main className="flex-1 overflow-y-auto" onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 4)}>

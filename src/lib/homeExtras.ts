@@ -48,11 +48,19 @@ export type FeedItem = { id: string; label: string; detail: string; at: string; 
 
 export async function getLiveFeed(demoMode: boolean): Promise<FeedItem[]> {
   const supabase = await createClient();
+  const { data: scopedClients } = await supabase.from("clients").select("id").eq("is_demo", demoMode);
+  const scopedClientIds = (scopedClients ?? []).map((c) => c.id);
+
   const [{ data: collections }, { data: calls }, { data: clients }, { data: assignments }] = await Promise.all([
     supabase.from("collections").select("id, amount, status, verified_at").eq("is_demo", demoMode).eq("status", "verified").not("verified_at", "is", null),
     supabase.from("calls").select("id, outcome, logged_at, opportunity_id").eq("is_demo", demoMode).not("logged_at", "is", null),
     supabase.from("clients").select("id, name, signed_at").eq("is_demo", demoMode).not("signed_at", "is", null),
-    supabase.from("rep_assignments").select("id, client_id, role, created_at"),
+    // rep_assignments has no is_demo column of its own — scope it through
+    // its (already demo-filtered) client_id so demo/real assignments never
+    // mix in the feed either.
+    scopedClientIds.length
+      ? supabase.from("rep_assignments").select("id, client_id, role, created_at").in("client_id", scopedClientIds)
+      : Promise.resolve({ data: [] }),
   ]);
 
   const items: FeedItem[] = [];
