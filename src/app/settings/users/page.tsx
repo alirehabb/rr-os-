@@ -27,10 +27,14 @@ export default async function UsersPage() {
     supabase.from("profiles").select("id, full_name, email, status, created_at").order("created_at", { ascending: false }),
     supabase.from("user_roles").select("id, user_id, role, client_id"),
     supabase.from("invitations").select("*").order("created_at", { ascending: false }),
-    supabase.from("clients").select("id, name").order("name"),
+    supabase.from("clients").select("id, name, is_demo").order("name"),
   ]);
 
   const clientNameById = new Map((clients ?? []).map((c) => [c.id, c.name]));
+  // Real users only ever get scoped to real clients — a demo client showing
+  // up in this picker would let someone accidentally grant access to
+  // fictional data instead of the account they meant.
+  const realClients = (clients ?? []).filter((c) => !c.is_demo);
   const rolesByUser = new Map<string, typeof roles>();
   for (const r of roles ?? []) {
     rolesByUser.set(r.user_id, [...(rolesByUser.get(r.user_id) ?? []), r]);
@@ -60,7 +64,7 @@ export default async function UsersPage() {
               </Select>
               <Select name="client_id" className="flex-1">
                 <option value="">No client scope</option>
-                {(clients ?? []).map((c) => (
+                {realClients.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>
@@ -159,7 +163,7 @@ export default async function UsersPage() {
                       </Select>
                       <Select name="client_id" className="flex-1 !py-1 text-xs">
                         <option value="">No client scope</option>
-                        {(clients ?? []).map((c) => (
+                        {realClients.map((c) => (
                           <option key={c.id} value={c.id}>
                             {c.name}
                           </option>
