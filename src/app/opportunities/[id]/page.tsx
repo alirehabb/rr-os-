@@ -43,7 +43,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
           title={opp.prospect_name}
           subtitle={
             <>
-              {clientName} · <Badge tone={STAGE_TONE[opp.stage]}>{opp.stage.replace("_", " ")}</Badge>
+              {clientName} · <Badge tone={STAGE_TONE[opp.stage]}>{opp.custom_stage_label ?? opp.stage.replace("_", " ")}</Badge>
               {" · "}
               {owner ? <span>Owner: {owner.full_name}</span> : <span className="text-danger">Unowned, no active closer to route to</span>}
             </>

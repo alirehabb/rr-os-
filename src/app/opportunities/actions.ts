@@ -7,7 +7,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 
 type CallOutcome = Database["public"]["Enums"]["call_outcome"];
+type OpportunityStage = Database["public"]["Enums"]["opportunity_stage"];
 type Supabase = SupabaseClient<Database>;
+
+// §4 client-specific layer — resolves this client's own vocabulary for a
+// universal stage, if they've configured one. Never affects what the stage
+// itself means to automation/reporting, only what it's displayed as.
+async function getStageLabel(supabase: Supabase, clientId: string, stage: OpportunityStage): Promise<string | null> {
+  const { data } = await supabase.from("client_stage_labels").select("label").eq("client_id", clientId).eq("stage", stage).maybeSingle();
+  return data?.label ?? null;
+}
 
 // Simple round-robin pool: whichever active closer assigned to this client
 // currently owns the fewest open opportunities gets the next booking. No AI
@@ -54,10 +63,11 @@ export async function createOpportunity(formData: FormData) {
   const supabase = await createClient();
 
   const owner_rep_id = await pickRoundRobinCloser(supabase, client_id);
+  const custom_stage_label = await getStageLabel(supabase, client_id, "booked");
 
   const { data: opp, error } = await supabase
     .from("opportunities")
-    .insert({ client_id, prospect_name, prospect_contact, source, stage: "booked", owner_rep_id })
+    .insert({ client_id, prospect_name, prospect_contact, source, stage: "booked", custom_stage_label, owner_rep_id })
     .select("id")
     .single();
   if (error) throw new Error(error.message);
@@ -111,7 +121,9 @@ export async function logCallOutcome(formData: FormData) {
     .eq("id", callId);
 
   const stage = outcome === "completed_won" ? "won" : outcome === "completed_lost" ? "lost" : "follow_up";
-  await supabase.from("opportunities").update({ stage, value: deal_value ?? undefined }).eq("id", opportunityId);
+  const { data: oppForLabel } = await supabase.from("opportunities").select("client_id").eq("id", opportunityId).single();
+  const custom_stage_label = oppForLabel ? await getStageLabel(supabase, oppForLabel.client_id, stage) : null;
+  await supabase.from("opportunities").update({ stage, custom_stage_label, value: deal_value ?? undefined }).eq("id", opportunityId);
 
   // §12 — a nonterminal opportunity needs an owner and a concrete next action/date.
   if (stage === "follow_up" && !agreed_next_action) {

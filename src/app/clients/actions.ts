@@ -7,6 +7,40 @@ import type { Database } from "@/lib/supabase/database.types";
 import { onboardNewClient } from "@/lib/clientOnboarding";
 
 type ClientLifecycleState = Database["public"]["Enums"]["client_lifecycle_state"];
+type OpportunityStage = Database["public"]["Enums"]["opportunity_stage"];
+
+// §4 client-specific layer — a custom label never changes what the universal
+// stage means or how automation acts on it, it only changes what this
+// client's own vocabulary calls it.
+export async function setClientStageLabel(formData: FormData) {
+  const clientId = String(formData.get("client_id"));
+  const stage = String(formData.get("stage")) as OpportunityStage;
+  const label = String(formData.get("label") ?? "").trim();
+  if (!label) throw new Error("Label is required");
+
+  const supabase = await createClient();
+  await supabase.from("client_stage_labels").upsert({ client_id: clientId, stage, label }, { onConflict: "client_id,stage" });
+
+  // Backfill: opportunities already sitting in this stage should show the
+  // new label immediately, not just future transitions.
+  await supabase.from("opportunities").update({ custom_stage_label: label }).eq("client_id", clientId).eq("stage", stage);
+
+  revalidatePath(`/clients/${clientId}`);
+  revalidatePath("/opportunities");
+}
+
+export async function removeClientStageLabel(formData: FormData) {
+  const id = String(formData.get("id"));
+  const clientId = String(formData.get("client_id"));
+  const stage = String(formData.get("stage")) as OpportunityStage;
+
+  const supabase = await createClient();
+  await supabase.from("client_stage_labels").delete().eq("id", id);
+  await supabase.from("opportunities").update({ custom_stage_label: null }).eq("client_id", clientId).eq("stage", stage);
+
+  revalidatePath(`/clients/${clientId}`);
+  revalidatePath("/opportunities");
+}
 
 // §8.2 — signing creates the canonical account immediately; handover items
 // are the Complete Sales Handover checklist, seeded so nothing is invented later.

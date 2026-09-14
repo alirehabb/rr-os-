@@ -7,8 +7,10 @@ import {
   updateLifecycleState,
   markFulfillmentComplete,
   markGoLiveComplete,
+  setClientStageLabel,
+  removeClientStageLabel,
 } from "../actions";
-import { PageHeader, SectionTitle, Card, Badge, Button, Select, EmptyState } from "@/components/ui";
+import { PageHeader, SectionTitle, Card, Badge, Button, Select, Input, EmptyState } from "@/components/ui";
 import { Tabs } from "@/components/tabs";
 import { buildClientTimeline } from "@/lib/clientTimeline";
 
@@ -17,6 +19,15 @@ function money(n: number) {
 }
 
 const INVOICE_TONE = { draft: "neutral", sent: "accent", paid: "success", void: "danger" } as const;
+
+const UNIVERSAL_STAGES = ["upstream", "booked", "follow_up", "won", "lost"] as const;
+const STAGE_HINT: Record<string, string> = {
+  upstream: "Before a call is booked",
+  booked: "Call booked, not yet happened",
+  follow_up: "Call happened, still open",
+  won: "Closed won",
+  lost: "Closed lost",
+};
 
 const LIFECYCLE_STATES = [
   "onboarding",
@@ -39,7 +50,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
     supabase.from("handover_items").select("*").eq("client_id", id).order("category"),
     supabase
       .from("opportunities")
-      .select("id, prospect_name, stage, value, first_booked_at")
+      .select("id, prospect_name, stage, custom_stage_label, value, first_booked_at")
       .eq("client_id", id)
       .order("first_booked_at", { ascending: false }),
     supabase.from("rep_assignments").select("id, rep_id, role, status").eq("client_id", id),
@@ -47,12 +58,14 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
 
   if (!client) notFound();
 
-  const [timeline, { data: invoices }, { data: libraryItems }, { data: agreementDocs }] = await Promise.all([
+  const [timeline, { data: invoices }, { data: libraryItems }, { data: agreementDocs }, { data: stageLabels }] = await Promise.all([
     buildClientTimeline(supabase, id),
     supabase.from("invoices").select("*").eq("client_id", id).order("created_at", { ascending: false }),
     supabase.from("knowledge_items").select("id, title, type").eq("client_id", id).order("created_at", { ascending: false }),
     supabase.from("documents").select("id, title, doc_type, status").eq("client_id", id).order("created_at", { ascending: false }),
+    supabase.from("client_stage_labels").select("*").eq("client_id", id),
   ]);
+  const stageLabelByStage = new Map((stageLabels ?? []).map((s) => [s.stage, s]));
 
   const cashCollected = (invoices ?? []).filter((i) => i.status === "paid").reduce((s, i) => s + Number(i.amount), 0);
 
@@ -229,7 +242,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                           <Link href={`/opportunities/${o.id}`} className="text-sm text-foreground">
                             {o.prospect_name}
                           </Link>
-                          <Badge>{o.stage.replace(/_/g, " ")}</Badge>
+                          <Badge>{o.custom_stage_label ?? o.stage.replace(/_/g, " ")}</Badge>
                         </Card>
                       </li>
                     ))}
@@ -366,6 +379,50 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                       </li>
                     ))}
                     {timeline.length === 0 && <EmptyState title="No activity yet." />}
+                  </ul>
+                </section>
+              ),
+            },
+            {
+              key: "workflow",
+              label: "Workflow",
+              content: (
+                <section>
+                  <SectionTitle>This client's pipeline vocabulary</SectionTitle>
+                  <p className="mb-4 text-sm text-muted">
+                    The underlying stage (booked, follow-up, won, lost) never changes, automation and reporting stay correct. This only
+                    changes what {client.name} calls each stage.
+                  </p>
+                  <ul className="space-y-2">
+                    {UNIVERSAL_STAGES.map((stage) => {
+                      const existing = stageLabelByStage.get(stage);
+                      return (
+                        <li key={stage}>
+                          <Card className="flex items-center justify-between gap-3 text-sm">
+                            <div className="w-32 shrink-0">
+                              <p className="font-medium text-foreground">{stage.replace(/_/g, " ")}</p>
+                              <p className="text-xs text-faint">{STAGE_HINT[stage]}</p>
+                            </div>
+                            <form action={setClientStageLabel} className="flex flex-1 gap-2">
+                              <input type="hidden" name="client_id" value={client.id} />
+                              <input type="hidden" name="stage" value={stage} />
+                              <Input key={existing?.label ?? stage} name="label" defaultValue={existing?.label ?? ""} placeholder={`Custom label for "${stage}"`} className="flex-1 text-xs" />
+                              <Button type="submit" variant="secondary" className="!px-3 !py-1.5 text-xs">
+                                Save
+                              </Button>
+                            </form>
+                            {existing && (
+                              <form action={removeClientStageLabel}>
+                                <input type="hidden" name="id" value={existing.id} />
+                                <input type="hidden" name="client_id" value={client.id} />
+                                <input type="hidden" name="stage" value={stage} />
+                                <button className="text-xs text-faint hover:text-danger">Reset</button>
+                              </form>
+                            )}
+                          </Card>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </section>
               ),

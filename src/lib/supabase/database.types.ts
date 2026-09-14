@@ -302,6 +302,48 @@ export type Database = {
           },
         ]
       }
+      client_stage_labels: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          label: string
+          stage: Database["public"]["Enums"]["opportunity_stage"]
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          label: string
+          stage: Database["public"]["Enums"]["opportunity_stage"]
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          label?: string
+          stage?: Database["public"]["Enums"]["opportunity_stage"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_stage_labels_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_clocks"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "client_stage_labels_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           billing_email: string | null

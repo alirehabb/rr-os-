@@ -16,7 +16,7 @@ export default async function OpportunitiesPage() {
   const [{ data: opportunities }, { data: clients }] = await Promise.all([
     supabase
       .from("opportunities")
-      .select("id, prospect_name, stage, value, client_id, is_demo")
+      .select("id, prospect_name, stage, custom_stage_label, value, client_id, is_demo")
       .eq("is_demo", demoMode)
       .order("first_booked_at", { ascending: false }),
     supabase.from("clients").select("id, name").eq("is_demo", demoMode),
@@ -37,7 +37,7 @@ export default async function OpportunitiesPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   {o.is_demo && <Badge tone="accent">Demo</Badge>}
-                  <Badge tone={STAGE_TONE[o.stage]}>{o.stage.replace("_", " ")}</Badge>
+                  <Badge tone={STAGE_TONE[o.stage]}>{o.custom_stage_label ?? o.stage.replace("_", " ")}</Badge>
                 </div>
               </LinkCard>
             </li>
