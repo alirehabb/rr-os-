@@ -73,7 +73,7 @@ export async function markFulfillmentComplete(formData: FormData) {
     if (!count) {
       await supabase.from("action_items").insert({
         title: `Match a rep for ${client.name}`,
-        reason: "Fulfillment is complete — this account has no rep assigned yet and cannot go live without one.",
+        reason: "Fulfillment is complete, this account has no rep assigned yet and cannot go live without one.",
         client_id: clientId,
         deadline_at: new Date(Date.now() + 7 * 86400000).toISOString(),
       });

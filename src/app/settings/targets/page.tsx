@@ -8,7 +8,7 @@ export default async function FounderTargetsPage() {
 
   return (
     <div className="mx-auto max-w-md px-6 py-10">
-      <PageHeader title="Founder Targets" subtitle="Powers the Founder Progress section on Home. Never fabricated — leave blank to hide." />
+      <PageHeader title="Founder Targets" subtitle="Powers the Founder Progress section on Home. Never fabricated, leave blank to hide." />
       <form action={saveFounderTargets}>
         <Card className="space-y-4">
           <Field label="Monthly RR revenue target ($)">

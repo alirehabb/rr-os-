@@ -12,7 +12,7 @@ export default function RunChasingButton() {
   useEffect(() => {
     if (!result) return;
     if (result.created.length > 0) toast(`Chasing found ${result.created.length} new overdue item(s)`, "success");
-    else toast(`Checked ${result.checked} condition(s) — nothing new`, "neutral");
+    else toast(`Checked ${result.checked} condition(s), nothing new`, "neutral");
   }, [result, toast]);
 
   return (

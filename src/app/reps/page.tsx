@@ -27,7 +27,7 @@ export default async function RepsPage() {
   return (
     <div className="flex-1">
       <div className="mx-auto max-w-[1400px] px-6 py-10">
-        <PageHeader title="Sales Talent" subtitle="Scouting and roster management — not a single applicant form." />
+        <PageHeader title="Sales Talent" subtitle="Scouting and roster management, not a single applicant form." />
 
         <details className="mb-8 rounded-2xl border border-border bg-surface shadow-sm shadow-black/[0.03]">
           <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium text-foreground">+ Add applicant</summary>

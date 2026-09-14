@@ -24,7 +24,7 @@ export async function sendBriefToSlack() {
   ].slice(0, 5);
 
   const lines = [
-    `*Morning Command Brief* — ${new Date(brief.generatedAt).toLocaleDateString()}`,
+    `*Morning Command Brief*, ${new Date(brief.generatedAt).toLocaleDateString()}`,
     "",
     priorities.length ? priorities.join("\n") : "Nothing urgent. Clear.",
     "",

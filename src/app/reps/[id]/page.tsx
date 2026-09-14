@@ -75,12 +75,12 @@ export default async function RepDetailPage({ params }: { params: Promise<{ id: 
           <p className="mt-1 text-muted">Claimed cash collected: {rep.claimed_cash_collected ?? "—"} (unverified claim, per §10.3)</p>
           {rep.evidence_source && <p className="mt-1 text-muted">Evidence: {rep.evidence_source}</p>}
           {rep.profile_id ? (
-            <p className="mt-3 text-success">Platform login linked — can access their own workspace at /my.</p>
+            <p className="mt-3 text-success">Platform login linked, can access their own workspace at /my.</p>
           ) : (
             <form action={linkRepProfile} className="mt-3">
               <input type="hidden" name="rep_id" value={rep.id} />
               <Button variant="secondary" className="text-xs">
-                Link platform login (matches by email — they must sign in once first)
+                Link platform login (matches by email, they must sign in once first)
               </Button>
             </form>
           )}

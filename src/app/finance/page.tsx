@@ -68,7 +68,7 @@ export default async function FinancePage() {
                     {!client?.rr_rate_basis && (
                       <form action={setClientRateBasis} className="mb-3 flex items-center gap-2 rounded-xl bg-warning-bg p-2 text-xs text-warning">
                         <input type="hidden" name="client_id" value={client?.id} />
-                        <span>No RR rate configured —</span>
+                        <span>No RR rate configured:</span>
                         <input
                           name="rr_rate"
                           type="number"
@@ -118,7 +118,7 @@ export default async function FinancePage() {
         </section>
 
         <section>
-          <SectionTitle>Rep wallet — Earned → Pending → Payable → Approved → Paid</SectionTitle>
+          <SectionTitle>Rep wallet: Earned → Pending → Payable → Approved → Paid</SectionTitle>
           <ul className="space-y-2">
             {(wallets ?? []).map((w) => (
               <li key={w.id}>
@@ -133,7 +133,7 @@ export default async function FinancePage() {
                       <form action={markPayablePendingToPayable}>
                         <input type="hidden" name="wallet_entry_id" value={w.id} />
                         <Button variant="secondary" className="!px-2 !py-1 text-xs">
-                          RR received — mark payable
+                          RR received, mark payable
                         </Button>
                       </form>
                     )}

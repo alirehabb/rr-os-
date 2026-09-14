@@ -38,7 +38,7 @@ export default async function BriefPage() {
 
         {nothingHappened && (
           <Card className="mb-6 bg-surface-subtle text-sm text-muted">
-            Nothing happened yesterday — no calls logged, no collections, no new applications or prospects.
+            Nothing happened yesterday. No calls logged, no collections, no new applications or prospects.
           </Card>
         )}
 
@@ -80,7 +80,7 @@ export default async function BriefPage() {
                   <Link href={`/clients/${d.clientId}`} className="text-foreground hover:underline">
                     {d.clientName}
                   </Link>{" "}
-                  — {d.kind.replace("_", "-")} due {new Date(d.deadline).toLocaleString()}
+                  {d.kind.replace("_", "-")} due {new Date(d.deadline).toLocaleString()}
                 </li>
               ))}
             </ul>

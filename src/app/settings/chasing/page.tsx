@@ -13,7 +13,7 @@ export default function ChasingSettingsPage() {
           <li>Rep live trials past their 7-day review date with no decision</li>
         </ul>
         <p className="text-xs text-faint">
-          Internal notification only (founder + reps via Slack). Client-facing email chasing isn&apos;t built — clients have no
+          Internal notification only (founder + reps via Slack). Client-facing email chasing isn&apos;t built. Clients have no
           contact email on file to send to.
         </p>
         <RunChasingButton />

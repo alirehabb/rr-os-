@@ -19,7 +19,7 @@ export default async function NewOpportunityPage({
       <div className="flex-1">
         <div className="mx-auto max-w-lg px-6 py-10">
           <PageHeader title="Log a booked call" />
-          <EmptyState title="No clients yet" hint="A booked call has to belong to a signed client — sign one first." />
+          <EmptyState title="No clients yet" hint="A booked call has to belong to a signed client, sign one first." />
           <Link href="/clients" className="mt-4 inline-block text-sm text-accent underline">
             Go to Clients →
           </Link>

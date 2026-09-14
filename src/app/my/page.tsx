@@ -143,7 +143,7 @@ export default async function MyWorkspacePage() {
                   <Link href={`/opportunities/${c.opportunity_id}`} className="text-foreground hover:underline">
                     {oppById.get(c.opportunity_id)?.prospect_name ?? "Opportunity"}
                   </Link>{" "}
-                  — was due {new Date(c.next_call_at!).toLocaleDateString()}
+                  was due {new Date(c.next_call_at!).toLocaleDateString()}
                 </li>
               ))}
             </ul>

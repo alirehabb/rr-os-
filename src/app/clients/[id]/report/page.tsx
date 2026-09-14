@@ -31,7 +31,7 @@ export default async function ClientReportPage({
   return (
     <div className="flex-1">
       <div className="mx-auto max-w-2xl px-6 py-10">
-        <PageHeader title={`${client.name} — Report`} />
+        <PageHeader title={`${client.name} Report`} />
 
         <form action={generateReport} className="mb-6 flex items-center gap-2">
           <input type="hidden" name="client_id" value={id} />

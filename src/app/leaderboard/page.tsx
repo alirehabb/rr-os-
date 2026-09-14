@@ -126,13 +126,13 @@ export default async function LeaderboardPage() {
       <div className="mx-auto max-w-3xl px-6 py-10">
         <PageHeader
           title="Leaderboard"
-          subtitle="Benchmark rows are clearly labeled hypothetical profiles for motivation — they never count toward real company totals (§21.1)."
+          subtitle="Benchmark rows are clearly labeled hypothetical profiles for motivation, they never count toward real company totals (§21.1)."
         />
         <p className="-mt-6 mb-8 text-xs text-faint">
           <Link href="/settings/rr-score" className="underline hover:text-muted">
             Configure RR Score weights
           </Link>
-          {config?.configured && missingComponentsWeighted && " — currently provisional: call quality and client representation have no real data source yet"}
+          {config?.configured && missingComponentsWeighted && " (currently provisional: call quality and client representation have no real data source yet)"}
         </p>
 
         <Board title="Close Rate" real={realRows} benchmarks={benchmarkRows} metric="closeRate" format={(v) => (v === null ? "—" : `${Math.round(v * 100)}%`)} scaleMax={1} />

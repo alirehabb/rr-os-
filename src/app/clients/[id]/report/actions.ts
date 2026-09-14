@@ -70,7 +70,7 @@ export async function sendReport(formData: FormData) {
       body: JSON.stringify({
         from: "Rehab Revenue OS <reports@rehab-revenue.com>",
         to: recipientEmails,
-        subject: `${client.name} — weekly report`,
+        subject: `${client.name} weekly report`,
         html,
       }),
     });
@@ -94,7 +94,7 @@ export async function sendReport(formData: FormData) {
 
 function renderReportHtml(clientName: string, s: Record<string, unknown>): string {
   return `
-    <h2>${clientName} — Weekly Report</h2>
+    <h2>${clientName} Weekly Report</h2>
     <p>Period: ${new Date(s.periodStart as string).toLocaleDateString()} – ${new Date(s.periodEnd as string).toLocaleDateString()}</p>
     <ul>
       <li>Booked calls: ${s.bookedCalls}</li>

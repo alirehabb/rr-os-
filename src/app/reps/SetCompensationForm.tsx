@@ -16,7 +16,7 @@ export default function SetCompensationForm({ assignmentId, repId }: { assignmen
     if (!result) return;
     if (result.recomputedCount > 0) {
       const money = result.totalAmount.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
-      toast(`Compensation set — backfilled ${result.recomputedCount} missed commission(s), ${money}`, "success");
+      toast(`Compensation set, backfilled ${result.recomputedCount} missed commission(s), ${money}`, "success");
     } else {
       toast("Compensation set", "success");
     }

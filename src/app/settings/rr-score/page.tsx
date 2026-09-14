@@ -11,7 +11,7 @@ export default async function RRScoreSettingsPage() {
       <div className="mx-auto max-w-lg px-6 py-10">
         <PageHeader
           title="RR Score Configuration"
-          subtitle={config?.configured ? `Configured (v${config.version})` : 'Not configured — leaderboard shows "awaiting configuration"'}
+          subtitle={config?.configured ? `Configured (v${config.version})` : 'Not configured, leaderboard shows "awaiting configuration"'}
         />
 
         <form action={saveRRScoreWeights}>
@@ -31,19 +31,19 @@ export default async function RRScoreSettingsPage() {
             <WeightField
               name="weight_call_quality"
               label="Call quality"
-              hint="No real data source yet — weighting this shows as missing on the score, not fabricated"
+              hint="No real data source yet, weighting this shows as missing on the score, not fabricated"
               defaultValue={config?.weight_call_quality ?? 0}
             />
             <WeightField
               name="weight_client_representation"
               label="Client representation"
-              hint="No real data source yet — same as above"
+              hint="No real data source yet, same as above"
               defaultValue={config?.weight_client_representation ?? 0}
             />
             <WeightField
               name="weight_consistency"
               label="Consistency"
-              hint="No real data source yet — same as above"
+              hint="No real data source yet, same as above"
               defaultValue={config?.weight_consistency ?? 0}
             />
             <Button className="w-full">Save configuration</Button>

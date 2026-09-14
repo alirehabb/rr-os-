@@ -48,7 +48,7 @@ export async function createOpportunity(formData: FormData) {
   const source = String(formData.get("source") ?? "").trim() || null;
   const scheduled_at = String(formData.get("scheduled_at") ?? "");
 
-  if (!client_id) throw new Error("A client must be selected — create a client first");
+  if (!client_id) throw new Error("A client must be selected, create a client first");
   if (!prospect_name || !scheduled_at) throw new Error("Prospect name and call time are required");
 
   const supabase = await createClient();
@@ -132,7 +132,7 @@ export async function logCallOutcome(formData: FormData) {
     if (deal) {
       await supabase.from("action_items").insert({
         title: `Collect payment terms for won deal`,
-        reason: "Deal marked won. RR/rep commission terms are not configured yet — this blocks final calculation per §15.2.",
+        reason: "Deal marked won. RR/rep commission terms are not configured yet, this blocks final calculation per §15.2.",
         opportunity_id: opportunityId,
         money_impact: deal_value,
       });

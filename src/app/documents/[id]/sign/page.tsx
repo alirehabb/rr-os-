@@ -33,7 +33,7 @@ export default async function SignDocumentPage({
       <div className="mx-auto max-w-2xl px-6 py-16">
         <Card>
           <p className="mb-4 text-sm font-medium text-success">
-            {done ? "Signed — thank you." : "This document has already been signed."}
+            {done ? "Signed, thank you." : "This document has already been signed."}
           </p>
           <pre className="mb-6 whitespace-pre-wrap rounded-xl bg-surface-subtle p-4 text-sm text-foreground">{doc.rendered_body}</pre>
           {signature && (

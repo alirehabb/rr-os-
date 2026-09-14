@@ -49,7 +49,7 @@ export default function ProspectBoard({ prospects }: { prospects: Prospect[] }) 
     startTransition(() => {
       moveProspectStage(dragId, stage as Parameters<typeof moveProspectStage>[1]);
     });
-    if (stage === "signed") toast(`${card.company_name} signed — Client 360 created`, "success");
+    if (stage === "signed") toast(`${card.company_name} signed, Client 360 created`, "success");
     setDragId(null);
   }
 

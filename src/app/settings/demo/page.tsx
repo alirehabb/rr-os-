@@ -10,7 +10,7 @@ export default async function DemoDataSettingsPage() {
     <div className="mx-auto max-w-lg px-6 py-10">
       <PageHeader
         title="Demo Data Mode"
-        subtitle="Populates the OS with a clearly-labeled fictional scenario so every screen can be experienced with realistic data. Never counted in real financial totals — purge it any time."
+        subtitle="Populates the OS with a clearly-labeled fictional scenario so every screen can be experienced with realistic data. Never counted in real financial totals, purge it any time."
       />
 
       <Card>

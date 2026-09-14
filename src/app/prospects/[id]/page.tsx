@@ -29,7 +29,7 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
 
         {prospect.converted_client_id ? (
           <div className="mb-6 rounded-2xl bg-success-bg px-4 py-3 text-sm text-success">
-            Converted —{" "}
+            Converted:{" "}
             <Link href={`/clients/${prospect.converted_client_id}`} className="underline">
               view Client 360
             </Link>
@@ -45,7 +45,7 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
                 <option value="azgari">Azgari (broker/candidate)</option>
               </Select>
               <button className="rounded-xl bg-success px-3 py-2 text-sm font-medium text-background transition-transform active:scale-[0.97]">
-                Mark signed — create Client 360
+                Mark signed, create Client 360
               </button>
             </Card>
           </form>

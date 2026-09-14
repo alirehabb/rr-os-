@@ -32,7 +32,7 @@ export default async function ConnectionsPage() {
       <div className="mx-auto max-w-2xl px-6 py-10">
         <PageHeader
           title="Connections"
-          subtitle='Real status only — an unconnected provider shows disconnected, never a fabricated "connected" state (§19).'
+          subtitle='Real status only, an unconnected provider shows disconnected, never a fabricated "connected" state (§19).'
         />
 
         <ul className="space-y-2">

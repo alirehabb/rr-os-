@@ -109,14 +109,14 @@ export async function enableDemoMode() {
   }
 
   const oppsSeed = [
-    { client: "Azgari", prospect: "Broker Intro — Coastal Partners", stage: "won" as const, outcome: "completed_won" as const, value: 18000, ownerRep: "Marcus Chen", daysBack: 12 },
-    { client: "Azgari", prospect: "Candidate Review — J. Whitfield", stage: "follow_up" as const, outcome: "completed_follow_up" as const, value: 9000, ownerRep: "Marcus Chen", daysBack: 2 },
-    { client: "Drivia", prospect: "Proposal Follow-up — Nexa Corp", stage: "follow_up" as const, outcome: "completed_follow_up" as const, value: 12000, ownerRep: "Sarah Ibrahim", daysBack: 1 },
-    { client: "Drivia", prospect: "Discovery — Fielding Co", stage: "won" as const, outcome: "completed_won" as const, value: 24000, ownerRep: "Sarah Ibrahim", daysBack: 20 },
-    { client: "Drivia", prospect: "Cold Outreach — Baymark Inc", stage: "lost" as const, outcome: "completed_lost" as const, value: 8000, ownerRep: "Sarah Ibrahim", daysBack: 6 },
+    { client: "Azgari", prospect: "Broker Intro: Coastal Partners", stage: "won" as const, outcome: "completed_won" as const, value: 18000, ownerRep: "Marcus Chen", daysBack: 12 },
+    { client: "Azgari", prospect: "Candidate Review: J. Whitfield", stage: "follow_up" as const, outcome: "completed_follow_up" as const, value: 9000, ownerRep: "Marcus Chen", daysBack: 2 },
+    { client: "Drivia", prospect: "Proposal Follow-up: Nexa Corp", stage: "follow_up" as const, outcome: "completed_follow_up" as const, value: 12000, ownerRep: "Sarah Ibrahim", daysBack: 1 },
+    { client: "Drivia", prospect: "Discovery: Fielding Co", stage: "won" as const, outcome: "completed_won" as const, value: 24000, ownerRep: "Sarah Ibrahim", daysBack: 20 },
+    { client: "Drivia", prospect: "Cold Outreach: Baymark Inc", stage: "lost" as const, outcome: "completed_lost" as const, value: 8000, ownerRep: "Sarah Ibrahim", daysBack: 6 },
     { client: "Apex Solutions", prospect: "Apex Discovery Call", stage: "booked" as const, outcome: "pending" as const, value: null, ownerRep: "Dalia Reyes", daysBack: 0 },
-    { client: "Apex Solutions", prospect: "Referral — Turner Group", stage: "follow_up" as const, outcome: "no_show" as const, value: null, ownerRep: "Dalia Reyes", daysBack: 4 },
-    { client: "OpenPro", prospect: "Liv180 Deal — Payment Pending", stage: "won" as const, outcome: "completed_won" as const, value: 15000, ownerRep: "Marcus Chen", daysBack: 30 },
+    { client: "Apex Solutions", prospect: "Referral: Turner Group", stage: "follow_up" as const, outcome: "no_show" as const, value: null, ownerRep: "Dalia Reyes", daysBack: 4 },
+    { client: "OpenPro", prospect: "Liv180 Deal: Payment Pending", stage: "won" as const, outcome: "completed_won" as const, value: 15000, ownerRep: "Marcus Chen", daysBack: 30 },
   ];
 
   for (const o of oppsSeed) {
@@ -140,7 +140,7 @@ export async function enableDemoMode() {
       scheduled_at: daysAgo(o.daysBack),
       outcome: o.outcome,
       logged_at: o.outcome !== "pending" ? daysAgo(o.daysBack) : null,
-      agreed_next_action: o.outcome === "completed_follow_up" ? "Send updated proposal" : o.outcome === "no_show" ? "Rebook — no show" : null,
+      agreed_next_action: o.outcome === "completed_follow_up" ? "Send updated proposal" : o.outcome === "no_show" ? "Rebook, no show" : null,
       deal_value: o.stage === "won" ? o.value : null,
       is_demo: true,
     });
@@ -224,7 +224,7 @@ export async function enableDemoMode() {
   await supabase.from("action_items").insert([
     {
       title: "Review Azgari call notes and approve next steps",
-      reason: "Won deal logged 12 days ago — confirm follow-up plan with the client.",
+      reason: "Won deal logged 12 days ago, confirm follow-up plan with the client.",
       client_id: clientIds["Azgari"],
       deadline_at: daysFromNow(0),
       money_impact: 18000,

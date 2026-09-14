@@ -174,7 +174,7 @@ function RepProfile({ rep, onStatusChanged }: { rep: Rep; onStatusChanged: (stat
           </Button>
         </form>
         <p className="mt-2 text-xs text-faint">
-          Changing status emails {rep.full_name.split(" ")[0]} automatically — interview requests include the Calendly link, rejections
+          Changing status emails {rep.full_name.split(" ")[0]} automatically. Interview requests include the Calendly link, rejections
           include the community waitlist offer.
         </p>
       </div>

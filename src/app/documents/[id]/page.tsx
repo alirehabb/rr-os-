@@ -51,7 +51,7 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
         {doc.status === "sent_for_signature" && (
           <>
             <Card className="mb-4">
-              <p className="mb-2 text-sm text-muted">Share this link with the signer — no account needed on their end.</p>
+              <p className="mb-2 text-sm text-muted">Share this link with the signer, no account needed on their end.</p>
               <CopySignLink documentId={doc.id} />
             </Card>
             <form action={attachExecutedCopy} className="mb-4">
@@ -102,7 +102,7 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
                 <>
                   <Field label="Rep assignment">
                     <Select name="rep_assignment_id" className="w-full">
-                      <option value="">— none —</option>
+                      <option value="">None</option>
                       {(assignments ?? []).map((a) => (
                         <option key={a.id} value={a.id}>
                           {repNameById.get(a.rep_id) ?? "Unknown"} ({a.role})

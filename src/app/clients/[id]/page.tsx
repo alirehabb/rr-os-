@@ -92,7 +92,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                       <>
                         <p className={`mt-1.5 ${clock?.fulfillment_breached ? "text-danger" : "text-warning"}`}>
                           Deadline {clock?.fulfillment_deadline ? new Date(clock.fulfillment_deadline).toLocaleString() : "—"}
-                          {clock?.fulfillment_breached ? " — breached" : ""}
+                          {clock?.fulfillment_breached ? " (breached)" : ""}
                         </p>
                         {blockers.length > 0 ? (
                           <p className="mt-1.5 text-xs text-faint">{blockers.length} handover item(s) blocking readiness</p>
@@ -113,7 +113,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                       <>
                         <p className={`mt-1.5 ${clock?.go_live_breached ? "text-danger" : "text-warning"}`}>
                           Deadline {clock?.go_live_deadline ? new Date(clock.go_live_deadline).toLocaleString() : "—"}
-                          {clock?.go_live_breached ? " — breached" : ""}
+                          {clock?.go_live_breached ? " (breached)" : ""}
                         </p>
                         <form action={markGoLiveComplete} className="mt-2">
                           <input type="hidden" name="client_id" value={client.id} />
@@ -122,7 +122,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                           </Button>
                         </form>
                         {client.fulfillment_completed_at && !hasActiveRep && (
-                          <p className="mt-1.5 text-xs text-faint">Blocked — no rep has completed trial review as active yet.</p>
+                          <p className="mt-1.5 text-xs text-faint">Blocked, no rep has completed trial review as active yet.</p>
                         )}
                       </>
                     )}

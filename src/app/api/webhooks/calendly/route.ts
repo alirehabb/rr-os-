@@ -60,7 +60,7 @@ export async function POST(req: Request) {
   } else if (body.event === "invitee.canceled" && existing) {
     await supabase
       .from("prospects")
-      .update({ stage: "no_show", next_action: "Re-engage — call was canceled", next_action_date: null })
+      .update({ stage: "no_show", next_action: "Re-engage, call was canceled", next_action_date: null })
       .eq("id", existing.id);
   }
 
