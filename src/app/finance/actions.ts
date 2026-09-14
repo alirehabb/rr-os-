@@ -3,6 +3,116 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { verifyCollectionCore, reconcileMissingCommissions } from "@/lib/collections";
+import { createAndFinalizeStripeInvoice, voidStripeInvoice } from "@/lib/stripeInvoicing";
+
+const INVOICE_FROM = "Rehab Revenue Finance <finance@hiring.rehab-revenue.com>";
+
+async function sendInvoiceEmail(billingEmail: string, clientName: string, amount: number, dueDate: Date | null, hostedUrl: string) {
+  const money = amount.toLocaleString("en-US", { style: "currency", currency: "USD" });
+  try {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: INVOICE_FROM,
+        to: [billingEmail],
+        subject: `Invoice from Rehab Revenue: ${money}`,
+        html: `<div style="font-family:sans-serif;font-size:14px;line-height:1.6;color:#1a1a1a">
+          <p>Hi ${clientName} team,</p>
+          <p>Here's an invoice from Rehab Revenue for ${money}${dueDate ? `, due ${dueDate.toLocaleDateString()}` : ""}.</p>
+          <p><a href="${hostedUrl}">${hostedUrl}</a></p>
+          <p>Rehab Revenue</p>
+        </div>`,
+      }),
+    });
+  } catch {
+    // best-effort — the invoice and hosted link are already real either way,
+    // the founder can copy the link manually if the email send fails
+  }
+}
+
+// §15 Finance Operations — a client owing RR money gets an actual invoice
+// issued from RR OS: real Stripe invoice, real hosted payment page, sent
+// through our own domain rather than switching to the Stripe dashboard.
+export async function createAndSendInvoice(formData: FormData) {
+  const clientId = String(formData.get("client_id"));
+  const dealId = String(formData.get("deal_id") ?? "") || null;
+  const description = String(formData.get("description") ?? "").trim();
+  const amount = Number(formData.get("amount"));
+  const dueDateRaw = String(formData.get("due_date") ?? "");
+  const billingEmailInput = String(formData.get("billing_email") ?? "").trim();
+
+  if (!description || !amount || amount <= 0) throw new Error("Description and a positive amount are required");
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: client } = await supabase.from("clients").select("id, name, billing_email, stripe_customer_id, is_demo").eq("id", clientId).single();
+  if (!client) throw new Error("Client not found");
+
+  const billingEmail = client.billing_email || billingEmailInput;
+  if (!billingEmail) throw new Error("This client has no billing email on file yet, enter one to send an invoice");
+  if (!client.billing_email) {
+    await supabase.from("clients").update({ billing_email: billingEmail }).eq("id", clientId);
+  }
+
+  const dueDate = dueDateRaw ? new Date(dueDateRaw) : null;
+
+  const { data: invoice, error } = await supabase
+    .from("invoices")
+    .insert({
+      client_id: clientId,
+      deal_id: dealId,
+      description,
+      amount,
+      due_date: dueDate?.toISOString() ?? null,
+      created_by: user?.id,
+      is_demo: client.is_demo,
+    })
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+
+  // Demo clients never touch the real Stripe account or send a real email —
+  // demo data must never create a real financial artifact. Simulate "sent"
+  // locally so the demo experience still shows a populated invoices list.
+  if (client.is_demo) {
+    await supabase.from("invoices").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", invoice.id);
+    revalidatePath("/finance");
+    return;
+  }
+
+  const { stripeInvoiceId, hostedInvoiceUrl } = await createAndFinalizeStripeInvoice(supabase, {
+    invoiceId: invoice.id,
+    client: { id: client.id, name: client.name, stripe_customer_id: client.stripe_customer_id, billing_email: billingEmail },
+    description,
+    amount,
+    dueDate,
+  });
+
+  await supabase
+    .from("invoices")
+    .update({ stripe_invoice_id: stripeInvoiceId, hosted_invoice_url: hostedInvoiceUrl, status: "sent", sent_at: new Date().toISOString() })
+    .eq("id", invoice.id);
+
+  await sendInvoiceEmail(billingEmail, client.name, amount, dueDate, hostedInvoiceUrl);
+
+  revalidatePath("/finance");
+}
+
+export async function voidInvoice(formData: FormData) {
+  const invoiceId = String(formData.get("invoice_id"));
+  const supabase = await createClient();
+
+  const { data: invoice } = await supabase.from("invoices").select("stripe_invoice_id, status").eq("id", invoiceId).single();
+  if (!invoice || invoice.status === "paid" || invoice.status === "void") return;
+
+  if (invoice.stripe_invoice_id) await voidStripeInvoice(invoice.stripe_invoice_id);
+  await supabase.from("invoices").update({ status: "void", voided_at: new Date().toISOString() }).eq("id", invoiceId);
+  revalidatePath("/finance");
+}
 
 // §15.2 — a rep logging "payment collected" is a claim until verified.
 export async function recordCollection(formData: FormData) {

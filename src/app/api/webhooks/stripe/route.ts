@@ -30,6 +30,48 @@ export async function POST(req: Request) {
   const event = JSON.parse(rawBody);
   const supabase = createServiceClient();
 
+  // A real Stripe Invoice (created from Finance -> Send invoice) being paid
+  // is itself sufficient verification evidence, same as a Checkout session —
+  // it feeds the exact same collection -> ledger -> rep-payable pipeline.
+  if (event.type === "invoice.paid") {
+    const obj = event.data.object;
+    const invoiceId: string | undefined = obj.metadata?.invoice_id;
+    if (invoiceId) {
+      const { data: invoice } = await supabase.from("invoices").select("id, client_id, deal_id, amount, status").eq("id", invoiceId).maybeSingle();
+      if (invoice && invoice.status !== "paid") {
+        await supabase.from("invoices").update({ status: "paid", paid_at: new Date().toISOString() }).eq("id", invoiceId);
+
+        if (invoice.deal_id) {
+          const { data: existing } = await supabase
+            .from("collections")
+            .select("id, status")
+            .eq("external_reference", obj.id)
+            .maybeSingle();
+          let collectionId = existing?.id;
+          if (!collectionId) {
+            const { data: created } = await supabase
+              .from("collections")
+              .insert({ deal_id: invoice.deal_id, amount: invoice.amount, external_reference: obj.id, status: "reported" })
+              .select("id")
+              .single();
+            collectionId = created?.id;
+          }
+          if (collectionId && existing?.status !== "verified") {
+            await verifyCollectionCore(supabase, { collectionId, dealId: invoice.deal_id });
+          }
+        }
+
+        await supabase.from("action_items").insert({
+          title: `Invoice paid: $${Number(invoice.amount).toLocaleString()}`,
+          reason: "A Stripe invoice sent from Finance was just paid. Verify the linked collection and any rep payable it created.",
+          client_id: invoice.client_id,
+          money_impact: invoice.amount,
+        });
+      }
+    }
+    return new Response("ok", { status: 200 });
+  }
+
   if (event.type === "checkout.session.completed" || event.type === "payment_intent.succeeded") {
     const obj = event.data.object;
     const dealId: string | undefined = obj.metadata?.deal_id;

@@ -6,26 +6,36 @@ import {
   markPayablePendingToPayable,
   recordPayoutPaid,
   setClientRateBasis,
+  createAndSendInvoice,
+  voidInvoice,
 } from "./actions";
 import { getDemoMode } from "@/lib/demoMode";
-import { PageHeader, SectionTitle, Card, Badge, Button, Input, EmptyState } from "@/components/ui";
+import { PageHeader, SectionTitle, Card, Badge, Button, Input, Select, EmptyState } from "@/components/ui";
 
 function money(n: number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 }
 
+const INVOICE_TONE = {
+  draft: "neutral",
+  sent: "accent",
+  paid: "success",
+  void: "danger",
+} as const;
+
 export default async function FinancePage() {
   const supabase = await createClient();
   const demoMode = await getDemoMode(supabase);
 
-  const [{ data: deals }, { data: collections }, { data: clients }, { data: opportunities }, { data: reps }, { data: wallets }] =
+  const [{ data: deals }, { data: collections }, { data: clients }, { data: opportunities }, { data: reps }, { data: wallets }, { data: invoices }] =
     await Promise.all([
       supabase.from("deals").select("*").eq("is_demo", demoMode).order("created_at", { ascending: false }),
       supabase.from("collections").select("*").eq("is_demo", demoMode).order("reported_at", { ascending: false }),
-      supabase.from("clients").select("id, name, rr_rate_basis").eq("is_demo", demoMode),
+      supabase.from("clients").select("id, name, rr_rate_basis, billing_email").eq("is_demo", demoMode),
       supabase.from("opportunities").select("id, prospect_name, client_id").eq("is_demo", demoMode),
       supabase.from("reps").select("id, full_name").eq("is_demo", demoMode),
       supabase.from("wallet_entries").select("*").eq("is_demo", demoMode).order("created_at", { ascending: false }),
+      supabase.from("invoices").select("*").eq("is_demo", demoMode).order("created_at", { ascending: false }),
     ]);
 
   const oppById = new Map((opportunities ?? []).map((o) => [o.id, o]));
@@ -45,6 +55,81 @@ export default async function FinancePage() {
     <div className="flex-1">
       <div className="mx-auto max-w-4xl px-6 py-10">
         <PageHeader title="Finance" />
+
+        <section className="mb-10">
+          <SectionTitle>Invoices</SectionTitle>
+          <form action={createAndSendInvoice} className="mb-4 space-y-2 rounded-2xl border border-border bg-surface p-4 shadow-sm shadow-black/[0.03]">
+            <div className="flex gap-2">
+              <Select name="client_id" required className="flex-1">
+                <option value="">Client...</option>
+                {(clients ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+              <Select name="deal_id" className="flex-1">
+                <option value="">No linked deal</option>
+                {(deals ?? []).map((d) => {
+                  const opp = oppById.get(d.opportunity_id);
+                  const client = opp ? clientById.get(opp.client_id) : undefined;
+                  return (
+                    <option key={d.id} value={d.id}>
+                      {client?.name ?? "Unknown"} · {opp?.prospect_name ?? d.id.slice(0, 8)}
+                    </option>
+                  );
+                })}
+              </Select>
+            </div>
+            <Input name="description" required placeholder="What's this invoice for?" />
+            <div className="flex gap-2">
+              <Input name="amount" type="number" step="0.01" min="0.01" required placeholder="Amount" className="flex-1" />
+              <Input name="due_date" type="date" className="flex-1" />
+              <Input name="billing_email" type="email" placeholder="Billing email (if not on file)" className="flex-1" />
+            </div>
+            <Button type="submit">Create &amp; send invoice</Button>
+          </form>
+
+          <ul className="space-y-2">
+            {(invoices ?? []).map((inv) => {
+              const client = clientById.get(inv.client_id);
+              const overdue = inv.status === "sent" && inv.due_date && new Date(inv.due_date) < new Date();
+              return (
+                <li key={inv.id}>
+                  <Card className="flex items-center justify-between text-sm">
+                    <div>
+                      <p className="font-medium text-foreground">
+                        {client?.name ?? "Unknown client"} · {inv.description}
+                      </p>
+                      <p className="text-xs text-faint">
+                        {inv.due_date ? `Due ${new Date(inv.due_date).toLocaleDateString()}` : "No due date"}
+                        {inv.sent_at && ` · sent ${new Date(inv.sent_at).toLocaleDateString()}`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="rr-fin-num text-muted">{money(Number(inv.amount))}</span>
+                      <Badge tone={overdue ? "danger" : INVOICE_TONE[inv.status as keyof typeof INVOICE_TONE] ?? "neutral"}>
+                        {overdue ? "overdue" : inv.status}
+                      </Badge>
+                      {inv.hosted_invoice_url && (
+                        <a href={inv.hosted_invoice_url} target="_blank" rel="noreferrer" className="text-xs text-accent hover:underline">
+                          View
+                        </a>
+                      )}
+                      {(inv.status === "draft" || inv.status === "sent") && (
+                        <form action={voidInvoice}>
+                          <input type="hidden" name="invoice_id" value={inv.id} />
+                          <button className="text-xs text-faint hover:text-danger">Void</button>
+                        </form>
+                      )}
+                    </div>
+                  </Card>
+                </li>
+              );
+            })}
+            {(invoices ?? []).length === 0 && <EmptyState title="No invoices yet." hint="Create one above to bill a client directly from RR OS." />}
+          </ul>
+        </section>
 
         <section className="mb-10">
           <SectionTitle>Deals &amp; collections</SectionTitle>

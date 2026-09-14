@@ -304,6 +304,7 @@ export type Database = {
       }
       clients: {
         Row: {
+          billing_email: string | null
           created_at: string
           fulfillment_completed_at: string | null
           go_live_completed_at: string | null
@@ -313,10 +314,12 @@ export type Database = {
           name: string
           rr_rate_basis: Json | null
           signed_at: string | null
+          stripe_customer_id: string | null
           updated_at: string
           workflow_type: string
         }
         Insert: {
+          billing_email?: string | null
           created_at?: string
           fulfillment_completed_at?: string | null
           go_live_completed_at?: string | null
@@ -326,10 +329,12 @@ export type Database = {
           name: string
           rr_rate_basis?: Json | null
           signed_at?: string | null
+          stripe_customer_id?: string | null
           updated_at?: string
           workflow_type?: string
         }
         Update: {
+          billing_email?: string | null
           created_at?: string
           fulfillment_completed_at?: string | null
           go_live_completed_at?: string | null
@@ -339,6 +344,7 @@ export type Database = {
           name?: string
           rr_rate_basis?: Json | null
           signed_at?: string | null
+          stripe_customer_id?: string | null
           updated_at?: string
           workflow_type?: string
         }
@@ -900,6 +906,95 @@ export type Database = {
             columns: ["rep_id"]
             isOneToOne: false
             referencedRelation: "reps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          amount: number
+          client_id: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          deal_id: string | null
+          description: string
+          due_date: string | null
+          hosted_invoice_url: string | null
+          id: string
+          is_demo: boolean
+          paid_at: string | null
+          sent_at: string | null
+          status: string
+          stripe_invoice_id: string | null
+          updated_at: string
+          voided_at: string | null
+        }
+        Insert: {
+          amount: number
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          deal_id?: string | null
+          description: string
+          due_date?: string | null
+          hosted_invoice_url?: string | null
+          id?: string
+          is_demo?: boolean
+          paid_at?: string | null
+          sent_at?: string | null
+          status?: string
+          stripe_invoice_id?: string | null
+          updated_at?: string
+          voided_at?: string | null
+        }
+        Update: {
+          amount?: number
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          deal_id?: string | null
+          description?: string
+          due_date?: string | null
+          hosted_invoice_url?: string | null
+          id?: string
+          is_demo?: boolean
+          paid_at?: string | null
+          sent_at?: string | null
+          status?: string
+          stripe_invoice_id?: string | null
+          updated_at?: string
+          voided_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_clocks"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
             referencedColumns: ["id"]
           },
         ]
