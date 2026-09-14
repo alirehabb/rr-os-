@@ -2,7 +2,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 
 const INTERVIEW_SCHEDULING_URL = "https://calendly.com/ali-rehabrevenues/rehab-revenue-interviews";
-const FROM = "Rehab Revenue Talent <talent@hiring.rehab-revenue.com>";
+const FROM = "Sarah at Rehab Revenue <sarah@hiring.rehab-revenue.com>";
 
 type RecruitingStatus = Database["public"]["Enums"]["recruiting_status"];
 
@@ -10,7 +10,7 @@ function wrap(name: string, body: string) {
   return `<div style="font-family:sans-serif;font-size:14px;line-height:1.6;color:#1a1a1a">
     <p>Hi ${name},</p>
     ${body}
-    <p style="margin-top:24px">— Rehab Revenue</p>
+    <p style="margin-top:24px">— Sarah<br/>Rehab Revenue</p>
   </div>`;
 }
 
