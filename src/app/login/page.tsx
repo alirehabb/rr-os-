@@ -5,22 +5,25 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button, Input } from "@/components/ui";
 
-// Single-tenant app, one founder account — password-only sign-in against a
-// fixed email so the user never has to see or type it.
-const LOGIN_EMAIL = "ali@rehab-revenue.com";
-
 export default function LoginPage() {
   const router = useRouter();
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [status, setStatus] = useState<"idle" | "sending" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "sending" | "error" | "suspended">("idle");
 
   async function signIn(e: React.FormEvent) {
     e.preventDefault();
     setStatus("sending");
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email: LOGIN_EMAIL, password });
-    if (error) {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error || !data.user) {
       setStatus("error");
+      return;
+    }
+    const { data: profile } = await supabase.from("profiles").select("status").eq("id", data.user.id).single();
+    if (profile?.status === "suspended") {
+      await supabase.auth.signOut();
+      setStatus("suspended");
       return;
     }
     router.replace("/");
@@ -37,13 +40,20 @@ export default function LoginPage() {
 
         <div className="rounded-2xl border border-border bg-surface p-8 shadow-sm shadow-black/[0.03]">
           <h1 className="text-lg font-semibold text-foreground">Sign in</h1>
-          <p className="mt-1 text-sm text-muted">Enter your password to continue.</p>
+          <p className="mt-1 text-sm text-muted">Enter your email and password to continue.</p>
 
           <form onSubmit={signIn} className="mt-6 space-y-3">
             <Input
-              type="password"
+              type="email"
               required
               autoFocus
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <Input
+              type="password"
+              required
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -51,7 +61,8 @@ export default function LoginPage() {
             <Button type="submit" disabled={status === "sending"} className="w-full">
               {status === "sending" ? "Signing in…" : "Sign in"}
             </Button>
-            {status === "error" && <p className="text-sm text-danger">Incorrect password.</p>}
+            {status === "error" && <p className="text-sm text-danger">Incorrect email or password.</p>}
+            {status === "suspended" && <p className="text-sm text-danger">This account has been suspended. Contact your admin.</p>}
           </form>
         </div>
       </div>

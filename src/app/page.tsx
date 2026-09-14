@@ -37,6 +37,16 @@ export default async function Home() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // Role-aware home: this Command Center is the Founder/internal/finance
+  // workspace. Closers and setters have their own workspace at /my; a
+  // client-only login has no business seeing company-wide numbers.
+  const { data: myRoles } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
+  const roleSet = new Set((myRoles ?? []).map((r) => r.role));
+  if (!roleSet.has("founder") && !roleSet.has("internal") && !roleSet.has("finance")) {
+    if (roleSet.has("closer") || roleSet.has("setter")) redirect("/my");
+    if (roleSet.has("client")) redirect("/portal");
+  }
+
   const { data: demo } = await supabase.from("demo_mode").select("enabled").limit(1).single();
   const demoMode = !!demo?.enabled;
 

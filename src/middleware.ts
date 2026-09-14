@@ -37,12 +37,25 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/auth") ||
     request.nextUrl.pathname.startsWith("/api/") ||
+    request.nextUrl.pathname.startsWith("/invite/") ||
     request.nextUrl.pathname.endsWith("/sign");
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
+  }
+
+  // A suspended account must lose access everywhere, not just at the login
+  // screen — otherwise an already-open session keeps working after suspend.
+  if (user && !isPublicPath) {
+    const { data: profile } = await supabase.from("profiles").select("status").eq("id", user.id).single();
+    if (profile?.status === "suspended") {
+      await supabase.auth.signOut();
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
   }
 
   return response;
