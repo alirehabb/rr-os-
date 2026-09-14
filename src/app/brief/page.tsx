@@ -2,7 +2,9 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { buildFounderBrief } from "@/lib/founderBrief";
 import { getDemoMode } from "@/lib/demoMode";
+import { askAI } from "@/lib/ai";
 import { PageHeader, SectionTitle, StatTile, Card } from "@/components/ui";
+import { Sparkles } from "lucide-react";
 import SendToSlackButton from "./SendToSlackButton";
 
 function money(n: number) {
@@ -27,6 +29,24 @@ export default async function BriefPage() {
     ...brief.neglectedOpportunities.map((o) => `Neglected: ${o.prospectName} (${o.daysSinceActivity}d no activity)`),
   ].slice(0, 5);
 
+  // AI narrative sits on top of the real numbers above, never in place of
+  // them — it's told to use only the facts given, and the page works fine
+  // (just without this section) if the key is missing or the call fails.
+  const aiTake = nothingHappened
+    ? null
+    : await askAI(
+        `You're a terse ops assistant writing one short paragraph (2-3 sentences, no bullet points, no markdown) telling a founder what to focus on today. Use ONLY these facts, don't invent anything else:
+Top priorities: ${priorities.length ? priorities.join("; ") : "none"}
+Calls logged yesterday: ${brief.yesterdayCallsLogged}
+Collected yesterday: $${brief.yesterdayCollections}
+Bookings today: ${brief.todaysBookings}
+Unpaid RR commission: $${brief.unpaidRRCommission}
+Rep payouts pending: $${brief.pendingPayouts}
+New talent applications: ${brief.newApplications}
+New RR prospects: ${brief.newProspects}`,
+        { system: "Plain English, short paragraphs, no em dashes, no corporate filler, sound like a sharp colleague not a report.", maxTokens: 300 },
+      );
+
   return (
     <div className="flex-1">
       <div className="mx-auto max-w-2xl px-6 py-10">
@@ -39,6 +59,15 @@ export default async function BriefPage() {
         {nothingHappened && (
           <Card className="mb-6 bg-surface-subtle text-sm text-muted">
             Nothing happened yesterday. No calls logged, no collections, no new applications or prospects.
+          </Card>
+        )}
+
+        {aiTake && (
+          <Card className="mb-8 border-accent/20 bg-accent/5 text-sm text-foreground">
+            <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-accent">
+              <Sparkles size={12} /> AI take
+            </div>
+            {aiTake}
           </Card>
         )}
 

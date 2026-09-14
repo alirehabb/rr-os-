@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { updateProspectStage, convertProspectToClient } from "../actions";
 import { PageHeader, Card, Field, Input, Select, Textarea, Button } from "@/components/ui";
+import AIFollowUpDraft from "./AIFollowUpDraft";
 
 const STAGES = [
   "lead",
@@ -50,6 +51,8 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
             </Card>
           </form>
         )}
+
+        <AIFollowUpDraft prospectId={prospect.id} />
 
         <form action={updateProspectStage}>
           <Card className="space-y-4">

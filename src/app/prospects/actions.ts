@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { Database } from "@/lib/supabase/database.types";
 import { onboardNewClient } from "@/lib/clientOnboarding";
+import { askAI } from "@/lib/ai";
 
 type ProspectStage = Database["public"]["Enums"]["prospect_stage"];
 
@@ -108,4 +109,30 @@ export async function convertProspectToClient(formData: FormData) {
   revalidatePath("/prospects");
   revalidatePath("/clients");
   redirect(`/clients/${clientId}`);
+}
+
+// Drafts, never sends — the founder reviews/edits before using it anywhere.
+// Grounded only in this prospect's own real fields, never invented context.
+export async function draftFollowUpEmail(prospectId: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data: p } = await supabase
+    .from("prospects")
+    .select("company_name, contact_name, stage, qualification_notes, proposed_plan, next_action, source")
+    .eq("id", prospectId)
+    .single();
+  if (!p) return null;
+
+  return askAI(
+    `Write a short, friendly follow-up email to a sales prospect. Use ONLY these real facts, don't invent details:
+Company: ${p.company_name}
+Contact: ${p.contact_name ?? "unknown, use a generic greeting"}
+Pipeline stage: ${p.stage}
+Notes: ${p.qualification_notes ?? "none"}
+Proposed plan: ${p.proposed_plan ?? "none"}
+Next action: ${p.next_action ?? "none"}
+Source: ${p.source ?? "unknown"}
+
+Output just the email body, no subject line, no placeholders in brackets except [Your name] at the end.`,
+    { system: "Plain English, short paragraphs, no em dashes, sound like a real person wrote it, not corporate copy.", maxTokens: 350 },
+  );
 }
