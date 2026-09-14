@@ -1,22 +1,30 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button, Input } from "@/components/ui";
 
-export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+// Single-tenant app, one founder account — password-only sign-in against a
+// fixed email so the user never has to see or type it.
+const LOGIN_EMAIL = "ali@rehab-revenue.com";
 
-  async function sendMagicLink(e: React.FormEvent) {
+export default function LoginPage() {
+  const router = useRouter();
+  const [password, setPassword] = useState("");
+  const [status, setStatus] = useState<"idle" | "sending" | "error">("idle");
+
+  async function signIn(e: React.FormEvent) {
     e.preventDefault();
     setStatus("sending");
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-    });
-    setStatus(error ? "error" : "sent");
+    const { error } = await supabase.auth.signInWithPassword({ email: LOGIN_EMAIL, password });
+    if (error) {
+      setStatus("error");
+      return;
+    }
+    router.replace("/");
+    router.refresh();
   }
 
   return (
@@ -29,27 +37,22 @@ export default function LoginPage() {
 
         <div className="rounded-2xl border border-border bg-surface p-8 shadow-sm shadow-black/[0.03]">
           <h1 className="text-lg font-semibold text-foreground">Sign in</h1>
-          <p className="mt-1 text-sm text-muted">We&apos;ll email you a one-time link — no password needed.</p>
+          <p className="mt-1 text-sm text-muted">Enter your password to continue.</p>
 
-          {status === "sent" ? (
-            <div className="mt-6 rounded-xl bg-success-bg px-4 py-3 text-sm text-success">
-              Check <span className="font-medium">{email}</span> for a sign-in link.
-            </div>
-          ) : (
-            <form onSubmit={sendMagicLink} className="mt-6 space-y-3">
-              <Input
-                type="email"
-                required
-                placeholder="you@rehabrevenues.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-              <Button type="submit" disabled={status === "sending"} className="w-full">
-                {status === "sending" ? "Sending…" : "Send magic link"}
-              </Button>
-              {status === "error" && <p className="text-sm text-danger">Something went wrong. Try again.</p>}
-            </form>
-          )}
+          <form onSubmit={signIn} className="mt-6 space-y-3">
+            <Input
+              type="password"
+              required
+              autoFocus
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <Button type="submit" disabled={status === "sending"} className="w-full">
+              {status === "sending" ? "Signing in…" : "Sign in"}
+            </Button>
+            {status === "error" && <p className="text-sm text-danger">Incorrect password.</p>}
+          </form>
         </div>
       </div>
     </div>

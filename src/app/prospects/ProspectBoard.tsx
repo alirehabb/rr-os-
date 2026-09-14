@@ -81,13 +81,24 @@ export default function ProspectBoard({ prospects }: { prospects: Prospect[] }) 
                       initial={{ opacity: 0, scale: 0.96 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.96 }}
-                      draggable={!locked}
-                      onDragStart={() => setDragId(p.id)}
-                      className={`rounded-xl border border-border bg-surface p-2.5 shadow-sm shadow-black/[0.03] ${
-                        locked ? "cursor-default opacity-70" : "cursor-grab active:cursor-grabbing"
-                      } ${stale && !locked ? "rr-urgent-pulse" : ""}`}
+                      className="rounded-xl"
                     >
-                      <Link href={locked ? `/clients/${p.converted_client_id}` : `/prospects/${p.id}`} className="block">
+                      <div
+                        draggable={!locked}
+                        onDragStart={(e) => {
+                          setDragId(p.id);
+                          e.dataTransfer.effectAllowed = "move";
+                          e.dataTransfer.setData("text/plain", p.id);
+                        }}
+                        className={`rounded-xl border border-border bg-surface p-2.5 shadow-sm shadow-black/[0.03] ${
+                          locked ? "cursor-default opacity-70" : "cursor-grab active:cursor-grabbing"
+                        } ${stale && !locked ? "rr-urgent-pulse" : ""}`}
+                      >
+                      <Link
+                        href={locked ? `/clients/${p.converted_client_id}` : `/prospects/${p.id}`}
+                        draggable={false}
+                        className="block"
+                      >
                         <p className="truncate text-sm font-medium text-foreground">{p.company_name}</p>
                         {p.contact_name && <p className="truncate text-xs text-muted">{p.contact_name}</p>}
                         <div className="mt-1.5 flex items-center gap-1.5">
@@ -102,6 +113,7 @@ export default function ProspectBoard({ prospects }: { prospects: Prospect[] }) 
                         )}
                         {locked && <p className="mt-1.5 text-[11px] text-success">→ Client 360</p>}
                       </Link>
+                      </div>
                     </motion.div>
                   );
                 })}
