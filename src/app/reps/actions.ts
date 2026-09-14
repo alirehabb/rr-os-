@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { Database } from "@/lib/supabase/database.types";
+import { sendRecruitingStatusEmail } from "@/lib/repEmails";
 
 type RecruitingStatus = Database["public"]["Enums"]["recruiting_status"];
 
@@ -43,12 +44,15 @@ export async function createRep(formData: FormData) {
 
 // §10.1 recruiting flow: Application → Screening → Interview/Pool/Rejected →
 // Available for matching → Selected → Client training → Live trial → Confirmed/Bench/Removed.
-// Human decides every transition — nothing here is automatic.
+// Human decides every transition — nothing here is automatic. Every transition
+// does send the matching applicant email (interview link, trial notice,
+// rejection + community waitlist, etc.) via sendRecruitingStatusEmail.
 export async function updateRecruitingStatus(formData: FormData) {
   const repId = String(formData.get("rep_id"));
   const recruiting_status = String(formData.get("recruiting_status")) as RecruitingStatus;
   const supabase = await createClient();
   await supabase.from("reps").update({ recruiting_status }).eq("id", repId);
+  await sendRecruitingStatusEmail(supabase, { repId, status: recruiting_status });
   revalidatePath(`/reps/${repId}`);
   revalidatePath("/reps");
 }

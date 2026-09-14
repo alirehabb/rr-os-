@@ -1,36 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { createRep } from "./actions";
-import { PageHeader, LinkCard, Badge, Button, Input, Avatar } from "@/components/ui";
+import { PageHeader, Button, Input } from "@/components/ui";
 import { getDemoMode } from "@/lib/demoMode";
-
-const STATUS_TONE = {
-  application: "neutral",
-  screening: "neutral",
-  interview: "accent",
-  talent_pool: "neutral",
-  rejected: "danger",
-  available_for_matching: "accent",
-  selected: "accent",
-  client_training: "warning",
-  live_trial: "warning",
-  confirmed_active: "success",
-  bench: "warning",
-  removed: "danger",
-} as const;
-
-// Recruiting flow, grouped into a real scouting board: Applicants -> Review
-// -> Talent Pool -> Matched -> Trial -> Active, with Bench/Removed off to
-// the side. This is roster management, not a single flat applicant table.
-const GROUPS: { label: string; statuses: (keyof typeof STATUS_TONE)[] }[] = [
-  { label: "Applicants", statuses: ["application"] },
-  { label: "Review", statuses: ["screening", "interview"] },
-  { label: "Talent Pool", statuses: ["talent_pool", "available_for_matching", "selected"] },
-  { label: "Matched", statuses: ["client_training"] },
-  { label: "Trial", statuses: ["live_trial"] },
-  { label: "Active", statuses: ["confirmed_active"] },
-  { label: "Bench", statuses: ["bench"] },
-  { label: "Removed", statuses: ["removed", "rejected"] },
-];
+import TalentBoard from "./TalentBoard";
 
 export default async function RepsPage() {
   const supabase = await createClient();
@@ -38,7 +10,9 @@ export default async function RepsPage() {
   const [{ data: reps }, { data: assignments }] = await Promise.all([
     supabase
       .from("reps")
-      .select("id, full_name, email, recruiting_status, capabilities, is_demo")
+      .select(
+        "id, full_name, email, phone, recruiting_status, capabilities, geography, timezone, linkedin_url, resume_url, intro_loom_url, sales_recording_url, offer_text, evidence_source, claimed_cash_collected, notes, community_waitlist, is_demo",
+      )
       .eq("is_benchmark", false)
       .eq("is_demo", demoMode)
       .order("created_at", { ascending: false }),
@@ -78,41 +52,7 @@ export default async function RepsPage() {
           </form>
         </details>
 
-        <div className="space-y-8">
-          {GROUPS.map((group) => {
-            const groupReps = (reps ?? []).filter((r) => group.statuses.includes(r.recruiting_status as keyof typeof STATUS_TONE));
-            if (groupReps.length === 0) return null;
-            return (
-              <section key={group.label}>
-                <div className="mb-3 flex items-center gap-2">
-                  <h2 className="text-sm font-semibold text-foreground">{group.label}</h2>
-                  <Badge tone="neutral">{groupReps.length}</Badge>
-                </div>
-                <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {groupReps.map((r) => (
-                    <li key={r.id}>
-                      <LinkCard href={`/reps/${r.id}`} className="flex flex-col items-center gap-3 p-5 text-center">
-                        <Avatar name={r.full_name} />
-                        <div>
-                          <p className="font-medium text-foreground">{r.full_name}</p>
-                          <p className="mt-0.5 text-xs text-muted">{r.capabilities.join(" · ") || "no role set"}</p>
-                        </div>
-                        <div className="flex flex-wrap items-center justify-center gap-1.5">
-                          {r.is_demo && <Badge tone="accent">Demo</Badge>}
-                          <Badge tone={STATUS_TONE[r.recruiting_status]}>{r.recruiting_status.replace(/_/g, " ")}</Badge>
-                        </div>
-                        {(activeAccountCountByRep.get(r.id) ?? 0) > 0 && (
-                          <p className="text-[11px] text-faint">{activeAccountCountByRep.get(r.id)} active account(s)</p>
-                        )}
-                      </LinkCard>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            );
-          })}
-          {(reps ?? []).length === 0 && <p className="text-sm text-faint">No applicants yet.</p>}
-        </div>
+        <TalentBoard reps={reps ?? []} activeAccountCountByRep={Object.fromEntries(activeAccountCountByRep)} />
       </div>
     </div>
   );
