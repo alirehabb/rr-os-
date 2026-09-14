@@ -1,0 +1,66 @@
+-- Performance audit: covering indexes for every foreign key Supabase's
+-- own advisor flagged as unindexed. Pure additive performance work, no
+-- behavior change — these are the join/filter columns every list page
+-- in the app already queries by (client_id, rep_id, opportunity_id, etc).
+
+create index if not exists idx_action_items_client_id on public.action_items (client_id);
+create index if not exists idx_action_items_opportunity_id on public.action_items (opportunity_id);
+create index if not exists idx_action_items_owner_id on public.action_items (owner_id);
+create index if not exists idx_action_items_rep_id on public.action_items (rep_id);
+create index if not exists idx_audit_log_actor_id on public.audit_log (actor_id);
+create index if not exists idx_calls_logged_by on public.calls (logged_by);
+create index if not exists idx_calls_opportunity_id on public.calls (opportunity_id);
+create index if not exists idx_client_reports_client_id on public.client_reports (client_id);
+create index if not exists idx_client_reports_sent_by on public.client_reports (sent_by);
+create index if not exists idx_collections_deal_id on public.collections (deal_id);
+create index if not exists idx_collections_reported_by on public.collections (reported_by);
+create index if not exists idx_collections_verified_by on public.collections (verified_by);
+create index if not exists idx_communications_author_id on public.communications (author_id);
+create index if not exists idx_communications_client_id on public.communications (client_id);
+create index if not exists idx_connections_client_id on public.connections (client_id);
+create index if not exists idx_connections_owner_id on public.connections (owner_id);
+create index if not exists idx_deals_opportunity_id on public.deals (opportunity_id);
+create index if not exists idx_document_signatures_document_id on public.document_signatures (document_id);
+create index if not exists idx_documents_client_id on public.documents (client_id);
+create index if not exists idx_documents_created_by on public.documents (created_by);
+create index if not exists idx_documents_rep_assignment_id on public.documents (rep_assignment_id);
+create index if not exists idx_documents_terms_approved_by on public.documents (terms_approved_by);
+create index if not exists idx_folders_client_id on public.folders (client_id);
+create index if not exists idx_folders_created_by on public.folders (created_by);
+create index if not exists idx_folders_parent_id on public.folders (parent_id);
+create index if not exists idx_handover_items_client_id on public.handover_items (client_id);
+create index if not exists idx_handover_items_reviewed_by on public.handover_items (reviewed_by);
+create index if not exists idx_invitations_client_id on public.invitations (client_id);
+create index if not exists idx_invitations_invited_by on public.invitations (invited_by);
+create index if not exists idx_invitations_rep_id on public.invitations (rep_id);
+create index if not exists idx_invoices_client_id on public.invoices (client_id);
+create index if not exists idx_invoices_created_by on public.invoices (created_by);
+create index if not exists idx_invoices_deal_id on public.invoices (deal_id);
+create index if not exists idx_knowledge_assignments_assigned_by on public.knowledge_assignments (assigned_by);
+create index if not exists idx_knowledge_assignments_client_id on public.knowledge_assignments (client_id);
+create index if not exists idx_knowledge_assignments_item_id on public.knowledge_assignments (item_id);
+create index if not exists idx_knowledge_assignments_rep_id on public.knowledge_assignments (rep_id);
+create index if not exists idx_knowledge_items_client_id on public.knowledge_items (client_id);
+create index if not exists idx_knowledge_items_created_by on public.knowledge_items (created_by);
+create index if not exists idx_knowledge_items_folder_id on public.knowledge_items (folder_id);
+create index if not exists idx_ledger_entries_client_id on public.ledger_entries (client_id);
+create index if not exists idx_ledger_entries_collection_id on public.ledger_entries (collection_id);
+create index if not exists idx_ledger_entries_created_by on public.ledger_entries (created_by);
+create index if not exists idx_ledger_entries_linked_adjustment_of on public.ledger_entries (linked_adjustment_of);
+create index if not exists idx_ledger_entries_rep_id on public.ledger_entries (rep_id);
+create index if not exists idx_opportunities_client_id on public.opportunities (client_id);
+create index if not exists idx_opportunities_owner_rep_id on public.opportunities (owner_rep_id);
+create index if not exists idx_opportunities_setter_rep_id on public.opportunities (setter_rep_id);
+create index if not exists idx_opportunity_ownership_history_changed_by on public.opportunity_ownership_history (changed_by);
+create index if not exists idx_opportunity_ownership_history_from_rep_id on public.opportunity_ownership_history (from_rep_id);
+create index if not exists idx_opportunity_ownership_history_opportunity_id on public.opportunity_ownership_history (opportunity_id);
+create index if not exists idx_opportunity_ownership_history_to_rep_id on public.opportunity_ownership_history (to_rep_id);
+create index if not exists idx_prospects_converted_client_id on public.prospects (converted_client_id);
+create index if not exists idx_prospects_owner_id on public.prospects (owner_id);
+create index if not exists idx_rep_assignments_client_id on public.rep_assignments (client_id);
+create index if not exists idx_reps_profile_id on public.reps (profile_id);
+create index if not exists idx_rr_score_config_configured_by on public.rr_score_config (configured_by);
+create index if not exists idx_user_roles_client_id on public.user_roles (client_id);
+create index if not exists idx_wallet_entries_approved_by on public.wallet_entries (approved_by);
+create index if not exists idx_wallet_entries_ledger_entry_id on public.wallet_entries (ledger_entry_id);
+create index if not exists idx_wallet_entries_rep_id on public.wallet_entries (rep_id);
