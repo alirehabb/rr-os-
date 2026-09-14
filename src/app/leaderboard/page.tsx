@@ -26,8 +26,13 @@ export default async function LeaderboardPage() {
     await Promise.all([
       // Benchmark rows are permanent hypothetical reference profiles
       // (is_demo=false always) — shown regardless of demo mode, clearly
-      // labeled, never mixed into real totals.
-      supabase.from("reps").select("id, full_name, is_benchmark, benchmark_stats").or(`is_benchmark.eq.true,is_demo.eq.${demoMode}`),
+      // labeled, never mixed into real totals. Real rows are restricted to
+      // actually-deployed reps (live trial or confirmed active) — a Talent
+      // CRM applicant has done no real work yet and must never be ranked.
+      supabase
+        .from("reps")
+        .select("id, full_name, is_benchmark, benchmark_stats, recruiting_status")
+        .or(`is_benchmark.eq.true,and(is_demo.eq.${demoMode},recruiting_status.in.(live_trial,confirmed_active))`),
       supabase.from("opportunities").select("id, owner_rep_id, stage").eq("is_demo", demoMode),
       supabase.from("ledger_entries").select("rep_id, entry_type, amount").eq("is_demo", demoMode),
       supabase.from("deals").select("id, opportunity_id").eq("is_demo", demoMode),
@@ -120,6 +125,23 @@ export default async function LeaderboardPage() {
 
   const realRows = rows.filter((r) => !r.isBenchmark);
   const benchmarkRows = rows.filter((r) => r.isBenchmark);
+
+  // Talent CRM applicants, screens, and bench reps never appear here, and
+  // nothing gets ranked (not even benchmarks) until at least one rep is
+  // actually deployed — a leaderboard with only hypothetical podiums isn't
+  // a real leaderboard, it's decoration.
+  if (realRows.length === 0) {
+    return (
+      <div className="flex-1">
+        <div className="mx-auto max-w-3xl px-6 py-10">
+          <PageHeader title="Leaderboard" />
+          <p className="rounded-2xl border border-dashed border-border bg-surface-subtle/40 px-4 py-8 text-center text-sm text-faint">
+            Leaderboard activates when RR has live deployed reps.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1">
