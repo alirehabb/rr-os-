@@ -12,6 +12,9 @@ import { Tooltip } from "@/components/tooltip";
 
 export default function AppShellClient({
   isFounder,
+  isStaff,
+  isRep,
+  isClientOnly,
   queueCount,
   userName,
   userEmail,
@@ -20,6 +23,9 @@ export default function AppShellClient({
   children,
 }: {
   isFounder: boolean;
+  isStaff: boolean;
+  isRep: boolean;
+  isClientOnly: boolean;
   queueCount: number;
   userName: string;
   userEmail: string;
@@ -58,6 +64,9 @@ export default function AppShellClient({
     <div className="flex h-screen w-full overflow-hidden">
       <Sidebar
         isFounder={isFounder}
+        isStaff={isStaff}
+        isRep={isRep}
+        isClientOnly={isClientOnly}
         queueCount={queueCount}
         userName={userName}
         userEmail={userEmail}

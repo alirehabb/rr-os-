@@ -24,6 +24,9 @@ type NavItem = { href: string; label: string; icon: typeof Home; badge?: number 
 
 export default function Sidebar({
   isFounder,
+  isStaff,
+  isRep,
+  isClientOnly,
   queueCount,
   userName,
   userEmail,
@@ -31,6 +34,9 @@ export default function Sidebar({
   onClose,
 }: {
   isFounder: boolean;
+  isStaff: boolean;
+  isRep: boolean;
+  isClientOnly: boolean;
   queueCount: number;
   userName: string;
   userEmail: string;
@@ -39,13 +45,21 @@ export default function Sidebar({
 }) {
   const pathname = usePathname();
 
-  const primary: NavItem[] = [
-    { href: "/", label: "Home", icon: Home },
-    { href: "/command-center", label: "Command Center", icon: ListChecks, badge: queueCount },
-    { href: "/my", label: "My Workspace", icon: Briefcase },
-  ];
+  // Each role gets its own shell, not the same three links for everyone —
+  // a client seeing "Command Center" (the internal ops queue) or a closer
+  // seeing "Home" (the company-wide founder dashboard) isn't just clutter,
+  // it's the wrong workspace entirely.
+  const primary: NavItem[] = isClientOnly
+    ? [{ href: "/portal", label: "My Account", icon: Briefcase, badge: queueCount }]
+    : isRep
+      ? [{ href: "/my", label: "My Workspace", icon: Briefcase, badge: queueCount }]
+      : [
+          { href: "/", label: "Home", icon: Home },
+          { href: "/command-center", label: "Command Center", icon: ListChecks, badge: queueCount },
+          { href: "/my", label: "My Workspace", icon: Briefcase },
+        ];
 
-  const founderGroups: { label: string; items: NavItem[] }[] = isFounder
+  const founderGroups: { label: string; items: NavItem[] }[] = isStaff
     ? [
         {
           label: "Revenue",
