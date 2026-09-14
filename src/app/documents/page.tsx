@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createDocument } from "./actions";
+import { getDemoMode } from "@/lib/demoMode";
 import { PageHeader, LinkCard, Badge, Button, Input, Select, EmptyState } from "@/components/ui";
 
 const STATUS_TONE = {
@@ -10,11 +11,16 @@ const STATUS_TONE = {
 
 export default async function DocumentsPage() {
   const supabase = await createClient();
-  const [{ data: documents }, { data: clients }] = await Promise.all([
+  const demoMode = await getDemoMode(supabase);
+  const [{ data: allDocuments }, { data: clients }] = await Promise.all([
     supabase.from("documents").select("id, title, doc_type, status, client_id").order("created_at", { ascending: false }),
-    supabase.from("clients").select("id, name").order("name"),
+    // documents has no is_demo column of its own — scope by the linked
+    // client's demo flag instead. Internal (no client) documents aren't
+    // client-specific and always show, matching how they're created below.
+    supabase.from("clients").select("id, name").eq("is_demo", demoMode).order("name"),
   ]);
   const clientNameById = new Map((clients ?? []).map((c) => [c.id, c.name]));
+  const documents = (allDocuments ?? []).filter((d) => !d.client_id || clientNameById.has(d.client_id));
 
   return (
     <div className="flex-1">
@@ -40,7 +46,7 @@ export default async function DocumentsPage() {
         </form>
 
         <ul className="space-y-2">
-          {(documents ?? []).map((d) => (
+          {documents.map((d) => (
             <li key={d.id}>
               <LinkCard href={`/documents/${d.id}`} className="flex items-center justify-between">
                 <div>
@@ -53,7 +59,7 @@ export default async function DocumentsPage() {
               </LinkCard>
             </li>
           ))}
-          {(documents ?? []).length === 0 && <EmptyState title="No documents yet." />}
+          {documents.length === 0 && <EmptyState title="No documents yet." />}
         </ul>
       </div>
     </div>

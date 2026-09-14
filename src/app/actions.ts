@@ -18,6 +18,15 @@ export async function completeActionItemById(id: string) {
   revalidatePath("/");
 }
 
+// Undo for the Command Queue's "complete" action — reopens it exactly as it
+// was, so clearing an item is never a one-way door within the undo window.
+export async function reopenActionItemById(id: string) {
+  const supabase = await createClient();
+  await supabase.from("action_items").update({ status: "open", completed_at: null }).eq("id", id);
+  revalidatePath("/");
+  revalidatePath("/command-center");
+}
+
 export async function snoozeActionItem(formData: FormData) {
   const id = String(formData.get("id"));
   const until = String(formData.get("snoozed_until"));

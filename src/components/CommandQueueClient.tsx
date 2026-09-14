@@ -3,7 +3,7 @@
 import { useOptimistic, useTransition } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
-import { completeActionItemById, pinActionItem } from "@/app/actions";
+import { completeActionItemById, reopenActionItemById, pinActionItem } from "@/app/actions";
 import { Badge, Button } from "@/components/ui";
 import { springSnappy } from "@/components/motion";
 import { useToast } from "@/components/toast";
@@ -25,17 +25,29 @@ function money(n: number) {
 // Command Queue completion is the single most-emphasized interaction in the
 // design brief: resolve smoothly, let remaining priorities reposition, give
 // restrained success feedback — not a full-page revalidation flash.
+type OptimisticUpdate = { type: "remove"; id: string } | { type: "restore"; item: QueueItem };
+
 export default function CommandQueueClient({ items, limit = 7 }: { items: QueueItem[]; limit?: number }) {
-  const [optimisticItems, removeItem] = useOptimistic(items, (state, id: string) => state.filter((i) => i.id !== id));
+  const [optimisticItems, dispatch] = useOptimistic(items, (state, update: OptimisticUpdate) =>
+    update.type === "remove" ? state.filter((i) => i.id !== update.id) : [update.item, ...state],
+  );
   const [, startTransition] = useTransition();
   const toast = useToast();
 
-  function complete(id: string, title: string) {
+  function complete(item: QueueItem) {
     startTransition(() => {
-      removeItem(id);
-      completeActionItemById(id);
+      dispatch({ type: "remove", id: item.id });
+      completeActionItemById(item.id);
     });
-    toast(`Cleared: ${title}`, "success");
+    toast(`Cleared: ${item.title}`, "success", {
+      label: "Undo",
+      onClick: () => {
+        startTransition(() => {
+          dispatch({ type: "restore", item });
+          reopenActionItemById(item.id);
+        });
+      },
+    });
   }
 
   return (
@@ -53,7 +65,7 @@ export default function CommandQueueClient({ items, limit = 7 }: { items: QueueI
               className={`flex items-center gap-3 overflow-hidden px-4 py-3 ${overdue ? "rr-urgent-pulse" : ""}`}
             >
               <button
-                onClick={() => complete(item.id, item.title)}
+                onClick={() => complete(item)}
                 aria-label="Complete"
                 className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-border transition-colors hover:border-accent active:scale-90"
               />

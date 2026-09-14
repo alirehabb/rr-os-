@@ -4,8 +4,9 @@ import { createContext, useCallback, useContext, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { springSnappy } from "@/components/motion";
 
-type Toast = { id: number; message: string; tone: "success" | "danger" | "neutral" };
-type ToastFn = (message: string, tone?: Toast["tone"]) => void;
+type ToastAction = { label: string; onClick: () => void };
+type Toast = { id: number; message: string; tone: "success" | "danger" | "neutral"; action?: ToastAction };
+type ToastFn = (message: string, tone?: Toast["tone"], action?: ToastAction) => void;
 
 const ToastContext = createContext<ToastFn>(() => {});
 
@@ -22,10 +23,13 @@ const TONE_CLASS: Record<Toast["tone"], string> = {
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const push = useCallback<ToastFn>((message, tone = "neutral") => {
+  // Undoable actions (a completed/dismissed/moved item) get a longer window
+  // and a visible button — 3s is enough to notice a plain confirmation, not
+  // enough to actually click Undo.
+  const push = useCallback<ToastFn>((message, tone = "neutral", action) => {
     const id = Date.now() + Math.random();
-    setToasts((t) => [...t, { id, message, tone }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3000);
+    setToasts((t) => [...t, { id, message, tone, action }]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), action ? 8000 : 3000);
   }, []);
 
   return (
@@ -41,9 +45,20 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={springSnappy}
-              className={`rr-glass pointer-events-auto rounded-xl border px-4 py-2.5 text-sm font-medium shadow-lg ${TONE_CLASS[t.tone]}`}
+              className={`rr-glass pointer-events-auto flex items-center gap-3 rounded-xl border px-4 py-2.5 text-sm font-medium shadow-lg ${TONE_CLASS[t.tone]}`}
             >
               {t.message}
+              {t.action && (
+                <button
+                  onClick={() => {
+                    t.action!.onClick();
+                    setToasts((cur) => cur.filter((x) => x.id !== t.id));
+                  }}
+                  className="rounded-lg bg-black/10 px-2 py-1 text-xs font-semibold underline underline-offset-2 hover:bg-black/15"
+                >
+                  {t.action.label}
+                </button>
+              )}
             </motion.div>
           ))}
         </AnimatePresence>
