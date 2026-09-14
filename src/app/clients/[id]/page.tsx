@@ -10,6 +10,13 @@ import {
 } from "../actions";
 import { PageHeader, SectionTitle, Card, Badge, Button, Select, EmptyState } from "@/components/ui";
 import { Tabs } from "@/components/tabs";
+import { buildClientTimeline } from "@/lib/clientTimeline";
+
+function money(n: number) {
+  return Number(n).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+}
+
+const INVOICE_TONE = { draft: "neutral", sent: "accent", paid: "success", void: "danger" } as const;
 
 const LIFECYCLE_STATES = [
   "onboarding",
@@ -39,6 +46,15 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   ]);
 
   if (!client) notFound();
+
+  const [timeline, { data: invoices }, { data: libraryItems }, { data: agreementDocs }] = await Promise.all([
+    buildClientTimeline(supabase, id),
+    supabase.from("invoices").select("*").eq("client_id", id).order("created_at", { ascending: false }),
+    supabase.from("knowledge_items").select("id, title, type").eq("client_id", id).order("created_at", { ascending: false }),
+    supabase.from("documents").select("id, title, doc_type, status").eq("client_id", id).order("created_at", { ascending: false }),
+  ]);
+
+  const cashCollected = (invoices ?? []).filter((i) => i.status === "paid").reduce((s, i) => s + Number(i.amount), 0);
 
   const repIds = (assignments ?? []).map((a) => a.rep_id);
   const { data: assignedReps } = repIds.length ? await supabase.from("reps").select("id, full_name").in("id", repIds) : { data: [] };
@@ -226,6 +242,133 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
               key: "notes",
               label: "Notes",
               content: <NotesThread subjectType="client" subjectId={client.id} clientId={client.id} revalidatePath={`/clients/${client.id}`} />,
+            },
+            {
+              key: "finance",
+              label: "Finance",
+              content: (
+                <section>
+                  <SectionTitle
+                    action={
+                      <Link href="/finance">
+                        <Button variant="secondary" className="text-sm">
+                          Create invoice
+                        </Button>
+                      </Link>
+                    }
+                  >
+                    Invoices
+                  </SectionTitle>
+                  <Card className="mb-4 text-sm">
+                    <p className="text-2xl font-semibold text-foreground">{money(cashCollected)}</p>
+                    <p className="mt-1 text-xs text-faint">Collected via paid invoices</p>
+                  </Card>
+                  <ul className="space-y-2">
+                    {(invoices ?? []).map((inv) => (
+                      <li key={inv.id}>
+                        <Card className="flex items-center justify-between text-sm">
+                          <div>
+                            <p className="text-foreground">{inv.description}</p>
+                            {inv.due_date && <p className="text-xs text-faint">Due {new Date(inv.due_date).toLocaleDateString()}</p>}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="rr-fin-num text-muted">{money(Number(inv.amount))}</span>
+                            <Badge tone={INVOICE_TONE[inv.status as keyof typeof INVOICE_TONE] ?? "neutral"}>{inv.status}</Badge>
+                          </div>
+                        </Card>
+                      </li>
+                    ))}
+                    {(invoices ?? []).length === 0 && <EmptyState title="No invoices for this client yet." />}
+                  </ul>
+                </section>
+              ),
+            },
+            {
+              key: "library",
+              label: "Library",
+              content: (
+                <section>
+                  <SectionTitle
+                    action={
+                      <Link href="/library">
+                        <Button variant="secondary" className="text-sm">
+                          Add resource
+                        </Button>
+                      </Link>
+                    }
+                  >
+                    Client resources
+                  </SectionTitle>
+                  <ul className="space-y-2">
+                    {(libraryItems ?? []).map((item) => (
+                      <li key={item.id}>
+                        <Card className="flex items-center justify-between text-sm">
+                          <span className="text-foreground">{item.title}</span>
+                          <Badge tone="neutral">{item.type}</Badge>
+                        </Card>
+                      </li>
+                    ))}
+                    {(libraryItems ?? []).length === 0 && (
+                      <EmptyState title="No client-specific resources yet." hint="Scope a Library folder or item to this client to see it here." />
+                    )}
+                  </ul>
+                </section>
+              ),
+            },
+            {
+              key: "documents",
+              label: "Documents",
+              content: (
+                <section>
+                  <SectionTitle
+                    action={
+                      <Link href="/documents">
+                        <Button variant="secondary" className="text-sm">
+                          New document
+                        </Button>
+                      </Link>
+                    }
+                  >
+                    Agreements &amp; documents
+                  </SectionTitle>
+                  <ul className="space-y-2">
+                    {(agreementDocs ?? []).map((doc) => (
+                      <li key={doc.id}>
+                        <Link href={`/documents/${doc.id}`}>
+                          <Card className="flex items-center justify-between text-sm transition-all hover:-translate-y-0.5 hover:border-accent/40">
+                            <span className="text-foreground">{doc.title}</span>
+                            <Badge tone="neutral">{doc.status.replace(/_/g, " ")}</Badge>
+                          </Card>
+                        </Link>
+                      </li>
+                    ))}
+                    {(agreementDocs ?? []).length === 0 && <EmptyState title="No documents for this client yet." />}
+                  </ul>
+                </section>
+              ),
+            },
+            {
+              key: "history",
+              label: "History",
+              content: (
+                <section>
+                  <SectionTitle>Activity timeline</SectionTitle>
+                  <ul className="space-y-2 border-l border-border pl-4">
+                    {timeline.map((e, i) => (
+                      <li key={i} className="relative text-sm">
+                        <span
+                          className={`absolute -left-[21px] top-1.5 h-2 w-2 rounded-full ${
+                            { neutral: "bg-faint", success: "bg-success", warning: "bg-warning", danger: "bg-danger", accent: "bg-accent" }[e.tone]
+                          }`}
+                        />
+                        <p className="text-foreground">{e.label}</p>
+                        <p className="text-xs text-faint">{new Date(e.at).toLocaleString()}</p>
+                      </li>
+                    ))}
+                    {timeline.length === 0 && <EmptyState title="No activity yet." />}
+                  </ul>
+                </section>
+              ),
             },
           ]}
         />
