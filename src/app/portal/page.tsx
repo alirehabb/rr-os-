@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { PageHeader, SectionTitle, Card, Badge, EmptyState } from "@/components/ui";
+import ResourceList from "@/components/ResourceList";
 
 const LIFECYCLE_LABEL: Record<string, string> = {
   onboarding: "Onboarding",
@@ -65,6 +66,11 @@ export default async function ClientPortalPage() {
     supabase.from("ledger_entries").select("entry_type, amount").eq("client_id", clientId),
   ]);
 
+  const { data: resourceAssignments } = await supabase
+    .from("knowledge_assignments")
+    .select("id, viewed_at, acknowledged_at, knowledge_items(id, title, type, body, external_url, storage_path)")
+    .eq("client_id", clientId);
+
   if (!client) redirect("/login");
 
   const handoverDone = (handoverItems ?? []).filter((h) => h.reviewed_at).length;
@@ -108,12 +114,17 @@ export default async function ClientPortalPage() {
           </ul>
         </section>
 
-        <section>
+        <section className="mb-6">
           <SectionTitle>Revenue Rehab has driven</SectionTitle>
           <Card className="text-sm">
             <p className="text-2xl font-semibold text-foreground">{money(cashCollected)}</p>
             <p className="mt-1 text-xs text-faint">Total RR revenue recognized to date</p>
           </Card>
+        </section>
+
+        <section>
+          <SectionTitle>Resources</SectionTitle>
+          <ResourceList assignments={resourceAssignments ?? []} />
         </section>
       </div>
     </div>

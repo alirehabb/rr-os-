@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageHeader, SectionTitle, StatTile, Card, Badge, EmptyState } from "@/components/ui";
 import { AnimatedNumber } from "@/components/motion";
+import ResourceList from "@/components/ResourceList";
 
 function money(n: number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -61,6 +62,12 @@ export default async function MyWorkspacePage() {
     supabase.from("wallet_entries").select("amount, status").eq("rep_id", rep.id),
     supabase.from("rep_assignments").select("id, client_id, role, status, booking_link").eq("rep_id", rep.id),
   ]);
+
+  const myPlatformRoles = (roles ?? []).map((r) => r.role);
+  const { data: resourceAssignments } = await supabase
+    .from("knowledge_assignments")
+    .select("id, viewed_at, acknowledged_at, knowledge_items(id, title, type, body, external_url, storage_path)")
+    .or([`rep_id.eq.${rep.id}`, ...myPlatformRoles.map((r) => `role.eq.${r}`)].join(","));
 
   const oppIds = (ownedOpps ?? []).map((o) => o.id);
   const { data: calls } = oppIds.length
@@ -205,6 +212,11 @@ export default async function MyWorkspacePage() {
             ))}
             {(assignments ?? []).length === 0 && <EmptyState title="No client assignments yet." />}
           </ul>
+        </section>
+
+        <section className="mt-8">
+          <SectionTitle>Resources</SectionTitle>
+          <ResourceList assignments={resourceAssignments ?? []} />
         </section>
       </div>
     </div>

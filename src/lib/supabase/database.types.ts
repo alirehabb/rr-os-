@@ -736,6 +736,68 @@ export type Database = {
           },
         ]
       }
+      folders: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_demo: boolean
+          name: string
+          parent_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_demo?: boolean
+          name: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_demo?: boolean
+          name?: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "folders_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_clocks"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "folders_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "folders_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "folders_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       founder_targets: {
         Row: {
           deals_target: number | null
@@ -995,6 +1057,155 @@ export type Database = {
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_assignments: {
+        Row: {
+          acknowledged_at: string | null
+          assigned_at: string
+          assigned_by: string | null
+          client_id: string | null
+          id: string
+          is_demo: boolean
+          item_id: string
+          rep_id: string | null
+          role: Database["public"]["Enums"]["app_role"] | null
+          viewed_at: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          assigned_at?: string
+          assigned_by?: string | null
+          client_id?: string | null
+          id?: string
+          is_demo?: boolean
+          item_id: string
+          rep_id?: string | null
+          role?: Database["public"]["Enums"]["app_role"] | null
+          viewed_at?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          assigned_at?: string
+          assigned_by?: string | null
+          client_id?: string | null
+          id?: string
+          is_demo?: boolean
+          item_id?: string
+          rep_id?: string | null
+          role?: Database["public"]["Enums"]["app_role"] | null
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_assignments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_clocks"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "knowledge_assignments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_assignments_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_assignments_rep_id_fkey"
+            columns: ["rep_id"]
+            isOneToOne: false
+            referencedRelation: "reps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_items: {
+        Row: {
+          body: string | null
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          external_url: string | null
+          folder_id: string | null
+          id: string
+          is_demo: boolean
+          storage_path: string | null
+          title: string
+          type: Database["public"]["Enums"]["knowledge_item_type"]
+          updated_at: string
+        }
+        Insert: {
+          body?: string | null
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          external_url?: string | null
+          folder_id?: string | null
+          id?: string
+          is_demo?: boolean
+          storage_path?: string | null
+          title: string
+          type?: Database["public"]["Enums"]["knowledge_item_type"]
+          updated_at?: string
+        }
+        Update: {
+          body?: string | null
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          external_url?: string | null
+          folder_id?: string | null
+          id?: string
+          is_demo?: boolean
+          storage_path?: string | null
+          title?: string
+          type?: Database["public"]["Enums"]["knowledge_item_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_items_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_clocks"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "knowledge_items_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_items_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "folders"
             referencedColumns: ["id"]
           },
         ]
@@ -1783,6 +1994,13 @@ export type Database = {
         | "active"
         | "paused"
         | "churned"
+      knowledge_item_type:
+        | "doc"
+        | "video"
+        | "link"
+        | "file"
+        | "image"
+        | "template"
       opportunity_stage: "upstream" | "booked" | "follow_up" | "won" | "lost"
       prospect_stage:
         | "lead"
@@ -1968,6 +2186,14 @@ export const Constants = {
         "active",
         "paused",
         "churned",
+      ],
+      knowledge_item_type: [
+        "doc",
+        "video",
+        "link",
+        "file",
+        "image",
+        "template",
       ],
       opportunity_stage: ["upstream", "booked", "follow_up", "won", "lost"],
       prospect_stage: [

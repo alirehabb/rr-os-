@@ -17,6 +17,7 @@ import {
   Plug,
   SlidersHorizontal,
   Sparkles,
+  BookOpen,
 } from "lucide-react";
 
 type NavItem = { href: string; label: string; icon: typeof Home; badge?: number };
@@ -65,6 +66,7 @@ export default function Sidebar({
         {
           label: "Operations",
           items: [
+            { href: "/library", label: "Library", icon: BookOpen },
             { href: "/documents", label: "Documents", icon: FileText },
             { href: "/connections", label: "Connections", icon: Plug },
             { href: "/settings", label: "Settings", icon: SlidersHorizontal },
