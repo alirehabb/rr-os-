@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createProspect } from "./actions";
 import { getDemoMode } from "@/lib/demoMode";
-import ProspectBoard from "./ProspectBoard";
+import ProspectViews from "./ProspectViews";
 import { PageHeader, Button, Input, Select } from "@/components/ui";
 
 export default async function ProspectsPage() {
@@ -9,7 +9,7 @@ export default async function ProspectsPage() {
   const demoMode = await getDemoMode(supabase);
   const { data: prospects } = await supabase
     .from("prospects")
-    .select("id, company_name, contact_name, stage, source, next_action, next_action_date, converted_client_id, is_demo, updated_at")
+    .select("id, company_name, contact_name, contact_email, stage, source, next_action, next_action_date, converted_client_id, is_demo, updated_at")
     .eq("is_demo", demoMode)
     .order("created_at", { ascending: false });
 
@@ -31,7 +31,7 @@ export default async function ProspectsPage() {
           <Button>Add</Button>
         </form>
 
-        <ProspectBoard prospects={prospects ?? []} />
+        <ProspectViews prospects={prospects ?? []} />
       </div>
     </div>
   );
