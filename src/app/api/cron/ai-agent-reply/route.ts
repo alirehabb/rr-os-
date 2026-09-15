@@ -1,6 +1,14 @@
 import { createServiceClient } from "@/lib/supabase/service";
-import { getRecentReplies, replyToEmail } from "@/lib/instantly";
+import { getRecentReplies, hasHumanReplied, replyToEmail } from "@/lib/instantly";
 import { askAI } from "@/lib/ai";
+
+const ALI_EMAIL = "ali@rehab-revenue.com";
+
+// Stages that mean the conversation has already moved past "interested
+// email reply" — a call is booked, in progress, or dead. Rule 9 (Follow-up)
+// says stop sales follow-up once booked or rejected; the agent has no
+// business drafting anything for these.
+const SKIP_STAGES = new Set(["call_booked", "no_show", "call_completed", "follow_up", "not_fit", "agreement_sent", "signed"]);
 
 // Same shared-secret guard as /api/cron/chase. Vercel's schedule below is
 // the fastest cron interval available on the current plan — upgrade if the
@@ -25,6 +33,8 @@ export async function GET(req: Request) {
   const fresh = replies.filter((r) => new Date(r.receivedAt).getTime() > cutoff);
 
   let sent = 0;
+  const results: { replyId: string; outcome: string }[] = [];
+
   for (const reply of fresh) {
     const { data: alreadyHandled } = await supabase
       .from("audit_log")
@@ -34,39 +44,115 @@ export async function GET(req: Request) {
       .maybeSingle();
     if (alreadyHandled) continue;
 
-    const draft = await askAI(
-      `Someone replied to our outreach email. Write a short reply.
-Their message: ${reply.preview}
+    // Rule 2, Human Ownership Override — checked first and overrides
+    // everything else. Once Ali has touched a thread, the agent never
+    // acts on it again, regardless of what else is true.
+    if (await hasHumanReplied(reply.threadId)) {
+      await logOutcome(supabase, reply, "skipped", "human_owns_thread");
+      results.push({ replyId: reply.id, outcome: "skipped: human_owns_thread" });
+      continue;
+    }
 
-Reply in the tone and using the guidelines/knowledge below. Output just the email body, no subject line.`,
+    // Rule 9, stop sales follow-up once the linked prospect has already
+    // booked, progressed, or been marked not a fit.
+    const { data: prospect } = await supabase
+      .from("prospects")
+      .select("stage")
+      .eq("contact_email", reply.leadEmail)
+      .maybeSingle();
+    if (prospect && SKIP_STAGES.has(prospect.stage)) {
+      await logOutcome(supabase, reply, "skipped", `prospect_stage_${prospect.stage}`);
+      results.push({ replyId: reply.id, outcome: `skipped: prospect_stage_${prospect.stage}` });
+      continue;
+    }
+
+    // Rule 1, the Absolute Reply Gate — classify before ever drafting.
+    // Anything short of a clear "interested" is a no-send, flagged for a
+    // human to look at rather than guessed at.
+    const classification = await askAI(
+      `Classify this email reply from a cold outreach recipient. Reply with exactly one word: INTERESTED, NOT_INTERESTED, or UNCLEAR.
+INTERESTED = shows genuine commercial interest, asks about pricing/how it works, wants to talk, or is a legitimate follow-up question from someone already engaged.
+NOT_INTERESTED = rejection, unsubscribe, hostility, spam complaint, legal threat, vendor pitch, out-of-office/auto-reply, or irrelevant.
+UNCLEAR = anything ambiguous that doesn't clearly fit either category.
+
+Email: "${reply.preview}"`,
+      { maxTokens: 10 },
+    );
+    const verdict = (classification ?? "").trim().toUpperCase();
+    if (!verdict.startsWith("INTERESTED")) {
+      await logOutcome(supabase, reply, "skipped", `classified_${verdict || "no_response"}`);
+      results.push({ replyId: reply.id, outcome: `skipped: classified_${verdict || "no_response"}` });
+      continue;
+    }
+
+    // Rule 3, CC Ali on the FIRST autonomous response in a thread only.
+    // thread_id isn't a uuid (Instantly's own id format), so it can't be
+    // target_id on this table — it's matched inside the jsonb payload
+    // instead, same place every other outcome for this thread gets logged.
+    const { data: priorSent } = await supabase
+      .from("audit_log")
+      .select("id")
+      .eq("action", "ai_agent_auto_reply")
+      .contains("after", { thread_id: reply.threadId, status: "sent" })
+      .maybeSingle();
+    const isFirstResponse = !priorSent;
+
+    const draft = await askAI(
+      `A prospect replied to our outreach email showing real interest. Write a reply that continues this exact conversation.
+Their message: "${reply.preview}"
+
+Follow every rule in the guidelines below exactly. Output just the email body, no subject line, no signature block beyond a first-name sign-off.`,
       {
-        system: `You are writing as the person whose mailbox this thread is running through (${reply.eaccount}) — the lead is replying to them directly, not to Rehab Revenue as a company. Tone: ${config.tone ?? "friendly, direct, plain English"}. Guidelines: ${config.guidelines ?? "none set"}. Knowledge base: ${config.knowledge_base ?? "none set"}. No em dashes.`,
-        maxTokens: 350,
+        system: `You are writing FROM the mailbox ${reply.eaccount} — the lead is replying to that person directly, not to "Rehab Revenue" as a company. Tone: ${config.tone ?? "professional, direct, human, 2-6 sentences"}.
+
+GUIDELINES (follow exactly):
+${config.guidelines ?? "none set yet"}
+
+KNOWLEDGE BASE:
+${config.knowledge_base ?? "none set yet"}
+
+No em dashes. No AI-sounding language.`,
+        maxTokens: 400,
       },
     );
 
-    // Replies go back into the Instantly thread itself (same account the
-    // lead already emailed), never out through a separate address — Sarah's
-    // inbox is an unrelated hiring mailbox and has nothing to do with this.
     let delivery_status: "sent" | "failed" | "no_draft" = "no_draft";
     if (draft) {
       const html = draft
         .split("\n\n")
         .map((p) => `<p>${p.replace(/\n/g, "<br/>")}</p>`)
         .join("");
-      const ok = await replyToEmail({ eaccount: reply.eaccount, replyToUuid: reply.id, subject: `Re: ${reply.subject}`, html });
+      const ok = await replyToEmail({
+        eaccount: reply.eaccount,
+        replyToUuid: reply.id,
+        subject: `Re: ${reply.subject}`,
+        html,
+        cc: isFirstResponse ? [ALI_EMAIL] : undefined,
+      });
       delivery_status = ok ? "sent" : "failed";
       if (ok) sent++;
     }
 
-    await supabase.from("audit_log").insert({
-      actor_type: "automation",
-      action: "ai_agent_auto_reply",
-      target_type: "instantly_reply",
-      target_id: reply.id,
-      after: { eaccount: reply.eaccount, lead: reply.leadEmail, draft, delivery_status },
-    });
+    await logOutcome(supabase, reply, delivery_status, undefined, draft, isFirstResponse);
+    results.push({ replyId: reply.id, outcome: delivery_status });
   }
 
-  return Response.json({ checked: fresh.length, sent });
+  return Response.json({ checked: fresh.length, sent, results });
+}
+
+async function logOutcome(
+  supabase: ReturnType<typeof createServiceClient>,
+  reply: { id: string; leadEmail: string; eaccount: string; threadId: string },
+  status: string,
+  reason?: string,
+  draft?: string | null,
+  ccdAli?: boolean,
+) {
+  await supabase.from("audit_log").insert({
+    actor_type: "automation",
+    action: "ai_agent_auto_reply",
+    target_type: "instantly_reply",
+    target_id: reply.id,
+    after: { eaccount: reply.eaccount, lead: reply.leadEmail, thread_id: reply.threadId, status, reason, draft, ccd_ali: ccdAli },
+  });
 }
