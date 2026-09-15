@@ -881,6 +881,60 @@ export type Database = {
           },
         ]
       }
+      followup_drafts: {
+        Row: {
+          body: string
+          channel: string
+          created_at: string
+          id: string
+          is_demo: boolean
+          prospect_id: string
+          sent_at: string | null
+          sent_by: string | null
+          status: string
+          subject: string
+        }
+        Insert: {
+          body: string
+          channel: string
+          created_at?: string
+          id?: string
+          is_demo?: boolean
+          prospect_id: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          subject: string
+        }
+        Update: {
+          body?: string
+          channel?: string
+          created_at?: string
+          id?: string
+          is_demo?: boolean
+          prospect_id?: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          subject?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "followup_drafts_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "followup_drafts_sent_by_fkey"
+            columns: ["sent_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       founder_targets: {
         Row: {
           deals_target: number | null
@@ -1556,6 +1610,7 @@ export type Database = {
           created_at: string
           id: string
           is_demo: boolean
+          last_ai_followup_at: string | null
           next_action: string | null
           next_action_date: string | null
           owner_id: string | null
@@ -1563,6 +1618,7 @@ export type Database = {
           qualification_notes: string | null
           source: string | null
           stage: Database["public"]["Enums"]["prospect_stage"]
+          timezone: string | null
           updated_at: string
         }
         Insert: {
@@ -1573,6 +1629,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_demo?: boolean
+          last_ai_followup_at?: string | null
           next_action?: string | null
           next_action_date?: string | null
           owner_id?: string | null
@@ -1580,6 +1637,7 @@ export type Database = {
           qualification_notes?: string | null
           source?: string | null
           stage?: Database["public"]["Enums"]["prospect_stage"]
+          timezone?: string | null
           updated_at?: string
         }
         Update: {
@@ -1590,6 +1648,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_demo?: boolean
+          last_ai_followup_at?: string | null
           next_action?: string | null
           next_action_date?: string | null
           owner_id?: string | null
@@ -1597,6 +1656,7 @@ export type Database = {
           qualification_notes?: string | null
           source?: string | null
           stage?: Database["public"]["Enums"]["prospect_stage"]
+          timezone?: string | null
           updated_at?: string
         }
         Relationships: [
