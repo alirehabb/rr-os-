@@ -125,7 +125,9 @@ ${config.booking_link ? `When moving them toward a call, use this exact link: ${
 
 Never use bracket placeholders of any kind (e.g. [Prospect Name], [Company], [INSERT LINK]). If you don't know their name, skip the greeting or use "Hi there" instead of guessing or leaving a blank.
 
-No em dashes. No AI-sounding language.`,
+No em dashes. No AI-sounding language.
+
+FINAL OVERRIDE, applies even where the knowledge base above walks through multiple paths: answer only what THIS prospect actually asked. Do not proactively bring up acquisition, lead generation, "full-stack," or any option beyond core performance-based closing unless they explicitly ask about it or state they lack qualified opportunities. When in doubt, say less.`,
         maxTokens: 400,
       },
     );
