@@ -368,9 +368,15 @@ async function DashboardBody({ demoMode, clientOptions }: { demoMode: boolean; c
       accent: "bg-accent/12 text-accent",
       neutral: "bg-surface-subtle text-muted",
     }[tone];
+    const washClasses = {
+      success: "bg-gradient-to-br from-success-bg/70 to-transparent",
+      warning: "bg-gradient-to-br from-warning-bg/70 to-transparent",
+      accent: "bg-gradient-to-br from-accent/10 to-transparent",
+      neutral: "",
+    }[tone];
     const hasTrend = trend && trend.some((v) => v > 0);
     return (
-      <Card className="rr-fade-up transition-transform hover:-translate-y-0.5">
+      <Card className={`rr-fade-up transition-transform hover:-translate-y-0.5 ${washClasses}`}>
         <div className={`mb-2 flex h-7 w-7 items-center justify-center rounded-lg ${toneClasses}`}>
           <Icon size={14} />
         </div>
