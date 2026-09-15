@@ -18,7 +18,26 @@ const SKIP_STAGES = new Set(["call_booked", "no_show", "call_completed", "follow
 // from /settings/ai-agent, after actually filling in tone/guidelines.
 export async function GET(req: Request) {
   const auth = req.headers.get("authorization");
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  const authOk = auth === `Bearer ${process.env.CRON_SECRET}`;
+
+  // Temporary heartbeat: writes on every single hit to this route, pass or
+  // fail, before anything else runs. This is the only way to tell from
+  // outside Vercel whether the cron is actually invoking the route at all
+  // (as opposed to the route running fine but simply finding nothing fresh
+  // to act on every tick). Remove once that's confirmed one way or another.
+  try {
+    const heartbeatClient = createServiceClient();
+    await heartbeatClient.from("audit_log").insert({
+      actor_type: "automation",
+      action: "ai_agent_cron_heartbeat",
+      target_type: "cron",
+      after: { auth_ok: authOk, has_secret_env: !!process.env.CRON_SECRET, user_agent: req.headers.get("user-agent") },
+    });
+  } catch {
+    // Heartbeat failing must never block the real handler below.
+  }
+
+  if (!authOk) {
     return new Response("Unauthorized", { status: 401 });
   }
 
