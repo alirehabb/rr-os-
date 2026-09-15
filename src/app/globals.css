@@ -183,6 +183,17 @@ body {
   letter-spacing: -0.01em;
 }
 
+/* Minimal rich-text styling for Tiptap-authored doc/template content —
+   no @tailwindcss/typography plugin needed for this small a surface. */
+.prose h2 { font-size: 1.15em; font-weight: 600; margin: 0.8em 0 0.3em; }
+.prose p { margin: 0.5em 0; }
+.prose ul, .prose ol { margin: 0.5em 0; padding-left: 1.4em; }
+.prose ul { list-style: disc; }
+.prose ol { list-style: decimal; }
+.prose blockquote { border-left: 2px solid var(--border); padding-left: 0.8em; color: var(--text-muted); margin: 0.5em 0; }
+.prose strong { font-weight: 600; }
+.prose em { font-style: italic; }
+
 /* Typed signatures render in a cursive hand instead of the UI's own
    typeface — a real handwritten look with no canvas/drawing required. */
 .rr-signature {

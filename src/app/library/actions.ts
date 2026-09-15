@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getDemoMode } from "@/lib/demoMode";
 import { revalidatePath } from "next/cache";
+import DOMPurify from "isomorphic-dompurify";
 import type { Database } from "@/lib/supabase/database.types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
@@ -65,6 +66,18 @@ export async function createItem(formData: FormData) {
   if (error) throw new Error(error.message);
 
   revalidatePath("/library");
+}
+
+// Doc/template editing: DocEditor.tsx autosaves Tiptap's HTML output here.
+// Sanitized on the way in, not just on render — an item's HTML can be shown
+// to assignees who never see this action, so it must already be clean.
+export async function updateItemBody(itemId: string, html: string) {
+  const supabase = await createClient();
+  const clean = DOMPurify.sanitize(html);
+  await supabase.from("knowledge_items").update({ body: clean, updated_at: new Date().toISOString() }).eq("id", itemId);
+  revalidatePath("/library");
+  revalidatePath("/my");
+  revalidatePath("/portal");
 }
 
 export async function deleteItem(formData: FormData) {

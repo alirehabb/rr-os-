@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import DOMPurify from "isomorphic-dompurify";
 import { FileText, Video, Link2, File, Image as ImageIcon } from "lucide-react";
 import { Card, Badge, EmptyState } from "@/components/ui";
 import { markAssignmentViewed, acknowledgeAssignment } from "@/app/library/actions";
@@ -49,7 +50,14 @@ export default function ResourceList({ assignments }: { assignments: Assignment[
                   <Icon size={16} className="mt-0.5 shrink-0 text-accent" />
                   <div>
                     <p className="font-medium text-foreground">{item.title}</p>
-                    {item.body && <p className="mt-1 whitespace-pre-wrap text-xs text-muted">{item.body}</p>}
+                    {item.body && (item.type === "doc" || item.type === "template") ? (
+                      <div
+                        className="prose prose-sm mt-1 max-w-none text-muted"
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(item.body) }}
+                      />
+                    ) : (
+                      item.body && <p className="mt-1 whitespace-pre-wrap text-xs text-muted">{item.body}</p>
+                    )}
                     {item.external_url && (
                       <a href={item.external_url} target="_blank" rel="noreferrer" className="mt-1 block text-xs text-accent hover:underline">
                         {item.external_url}

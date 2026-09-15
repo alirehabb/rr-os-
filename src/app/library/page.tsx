@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getDemoMode } from "@/lib/demoMode";
-import { PageHeader, SectionTitle, Card, Badge, Button, Input, Select, Textarea, EmptyState } from "@/components/ui";
+import { PageHeader, SectionTitle, Card, Badge, Button, Input, Select, EmptyState } from "@/components/ui";
 import { Folder, FileText, Video, Link2, File, Image as ImageIcon } from "lucide-react";
 import { createFolder, createItem, deleteItem, deleteFolder, assignItem, removeAssignment } from "./actions";
 import DownloadButton from "./DownloadButton";
@@ -108,7 +108,7 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
                   ))}
                 </Select>
               </div>
-              <Textarea name="body" placeholder="Text content (for Doc/Template)" rows={2} className="text-xs" />
+              <p className="text-xs text-faint">Doc/Template content is written in the editor after you add it.</p>
               <Input name="external_url" placeholder="URL (for Video/Link)" className="text-xs" />
               <input type="file" name="file" className="w-full text-xs text-muted" />
               <Button className="!py-1.5 text-xs">Add to library</Button>
@@ -153,9 +153,21 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
                       <div className="flex items-start gap-2">
                         <Icon size={16} className="mt-0.5 shrink-0 text-accent" />
                         <div>
-                          <p className="font-medium text-foreground">{item.title}</p>
+                          <p className="font-medium text-foreground">
+                            {item.type === "doc" || item.type === "template" ? (
+                              <Link href={`/library/${item.id}`} className="hover:underline">
+                                {item.title}
+                              </Link>
+                            ) : (
+                              item.title
+                            )}
+                          </p>
                           {item.client_id && <Badge tone="neutral">{clientById.get(item.client_id)?.name ?? "client"}</Badge>}
-                          {item.body && <p className="mt-1 whitespace-pre-wrap text-xs text-muted">{item.body}</p>}
+                          {(item.type === "doc" || item.type === "template") && (
+                            <Link href={`/library/${item.id}`} className="mt-1 block text-xs text-accent hover:underline">
+                              {item.body ? "Open document →" : "Write content →"}
+                            </Link>
+                          )}
                           {item.external_url && (
                             <a href={item.external_url} target="_blank" rel="noreferrer" className="mt-1 block text-xs text-accent hover:underline">
                               {item.external_url}
