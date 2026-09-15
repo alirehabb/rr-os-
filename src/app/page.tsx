@@ -1,7 +1,8 @@
-import { getPulseTotals, getCommandQueue, getClientClocks, getCashCollectedTrend, getCallsBookedTrend } from "@/lib/queries";
+import { getPulseTotals, getCommandQueue, getCashCollectedTrend, getCallsBookedTrend } from "@/lib/queries";
 import { getClientPulse, getLiveFeed, getToday } from "@/lib/homeExtras";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import Link from "next/link";
 import CommandQueueClient from "@/components/CommandQueueClient";
 import { AnimatedNumber } from "@/components/motion";
@@ -47,21 +48,68 @@ export default async function Home() {
     if (roleSet.has("client")) redirect("/portal");
   }
 
-  const { data: demo } = await supabase.from("demo_mode").select("enabled").limit(1).single();
+  const [{ data: demo }, { data: profile }, { data: clientOptions }] = await Promise.all([
+    supabase.from("demo_mode").select("enabled").limit(1).single(),
+    supabase.from("profiles").select("full_name").eq("id", user.id).single(),
+    supabase.from("clients").select("id, name").order("name"),
+  ]);
   const demoMode = !!demo?.enabled;
-
-  const [{ data: profile }, { data: targets }, { data: clientOptions }, { count: realClientCount }, { data: rrScoreConfig }, { count: connectedCount }] =
-    await Promise.all([
-      supabase.from("profiles").select("full_name").eq("id", user.id).single(),
-      supabase.from("founder_targets").select("*").limit(1).single(),
-      supabase.from("clients").select("id, name").eq("is_demo", demoMode).order("name"),
-      // Setup completeness is about the REAL business, independent of
-      // whether demo mode happens to be toggled on for exploration.
-      supabase.from("clients").select("*", { count: "exact", head: true }).eq("is_demo", false),
-      supabase.from("rr_score_config").select("configured").limit(1).single(),
-      supabase.from("connections").select("*", { count: "exact", head: true }).is("client_id", null).eq("status", "connected"),
-    ]);
   const firstName = (profile?.full_name ?? "there").split(" ")[0];
+
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+
+  // The shell (greeting, quick actions) needs only the three fast queries
+  // above and renders immediately. Everything data-heavy streams in behind
+  // its own Suspense boundary instead of blocking the whole page — this is
+  // what makes the dashboard open right away instead of showing a blank
+  // screen while ~20 queries resolve.
+  return (
+    <div className="mx-auto max-w-[1400px] px-6 py-6">
+      <div className="mb-6 flex items-center justify-between rr-fade-up">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            {greeting}, {firstName}
+          </h1>
+          <p className="mt-0.5 text-sm text-muted">Here&apos;s what&apos;s happening with Rehab Revenue today.</p>
+        </div>
+      </div>
+
+      <Suspense fallback={<DashboardSkeleton />}>
+        <DashboardBody demoMode={demoMode} clientOptions={clientOptions ?? []} />
+      </Suspense>
+    </div>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="animate-pulse">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="h-[92px] rounded-2xl border border-border bg-surface-subtle" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_1fr_1fr]">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-64 rounded-2xl border border-border bg-surface-subtle" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+async function DashboardBody({ demoMode, clientOptions }: { demoMode: boolean; clientOptions: { id: string; name: string }[] }) {
+  const supabase = await createClient();
+
+  const [{ data: targets }, { count: realClientCount }, { data: rrScoreConfig }, { count: connectedCount }] = await Promise.all([
+    supabase.from("founder_targets").select("*").limit(1).single(),
+    // Setup completeness is about the REAL business, independent of
+    // whether demo mode happens to be toggled on for exploration.
+    supabase.from("clients").select("*", { count: "exact", head: true }).eq("is_demo", false),
+    supabase.from("rr_score_config").select("configured").limit(1).single(),
+    supabase.from("connections").select("*", { count: "exact", head: true }).is("client_id", null).eq("status", "connected"),
+  ]);
 
   const setupSteps = [
     { label: "Set a monthly revenue target", href: "/settings/targets", done: !!targets?.monthly_revenue_target },
@@ -71,10 +119,9 @@ export default async function Home() {
   ];
   const setupIncomplete = setupSteps.some((s) => !s.done);
 
-  const [pulse, queue, clocks, clientPulse, feed, today, cashTrend, callsTrend] = await Promise.all([
+  const [pulse, queue, clientPulse, feed, today, cashTrend, callsTrend] = await Promise.all([
     getPulseTotals(demoMode),
     getCommandQueue(demoMode),
-    getClientClocks(demoMode),
     getClientPulse(demoMode),
     getLiveFeed(demoMode),
     getToday(demoMode),
@@ -82,11 +129,7 @@ export default async function Home() {
     getCallsBookedTrend(demoMode),
   ]);
 
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-
   const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthProgress = targets?.monthly_revenue_target ? Math.min(100, (pulse.rrEarned / targets.monthly_revenue_target) * 100) : null;
   const daysLeftInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate();
 
@@ -99,16 +142,7 @@ export default async function Home() {
         : "Nothing urgent. You're clear.";
 
   return (
-    <div className="mx-auto max-w-[1400px] px-6 py-6">
-      <div className="mb-6 flex items-center justify-between rr-fade-up">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            {greeting}, {firstName}
-          </h1>
-          <p className="mt-0.5 text-sm text-muted">Here&apos;s what&apos;s happening with Rehab Revenue today.</p>
-        </div>
-      </div>
-
+    <>
       {/* RR Pulse */}
       <section className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <PulseTile icon={DollarSign} label="Cash Collected" numericValue={pulse.cashCollected} kind="money" tone="success" trend={cashTrend} />
@@ -271,7 +305,7 @@ export default async function Home() {
           </div>
           <div className="grid grid-cols-1 gap-1.5 p-3">
             <QuickAction href="/opportunities/new" icon={PhoneCall} label="Log a Call" />
-            <QuickAddOpportunitySheet clients={clientOptions ?? []} />
+            <QuickAddOpportunitySheet clients={clientOptions} />
             <QuickAddClientSheet />
             <QuickAction href="/reps" icon={UserPlus} label="Review Talent" />
             <QuickAction href="/documents" icon={FolderOpen} label="Create Document" />
@@ -308,7 +342,7 @@ export default async function Home() {
           <p className="hidden text-sm italic text-faint sm:block">&ldquo;A calm operator always wins.&rdquo;</p>
         </Card>
       )}
-    </div>
+    </>
   );
 
   function PulseTile({
