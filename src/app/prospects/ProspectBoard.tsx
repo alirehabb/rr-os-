@@ -19,16 +19,16 @@ type Prospect = {
   updated_at: string;
 };
 
-const STAGES: { key: string; label: string }[] = [
-  { key: "lead", label: "Lead" },
-  { key: "interested", label: "Interested" },
-  { key: "call_booked", label: "Call Booked" },
-  { key: "no_show", label: "No Show" },
-  { key: "call_completed", label: "Call Completed" },
-  { key: "follow_up", label: "Follow-Up" },
-  { key: "not_fit", label: "Not Fit" },
-  { key: "agreement_sent", label: "Agreement Sent" },
-  { key: "signed", label: "Signed" },
+const STAGES: { key: string; label: string; dot: string }[] = [
+  { key: "lead", label: "Lead", dot: "bg-slate-400" },
+  { key: "interested", label: "Interested", dot: "bg-accent" },
+  { key: "call_booked", label: "Call Booked", dot: "bg-sky-500" },
+  { key: "no_show", label: "No Show", dot: "bg-danger" },
+  { key: "call_completed", label: "Call Completed", dot: "bg-warning" },
+  { key: "follow_up", label: "Follow-Up", dot: "bg-amber-500" },
+  { key: "not_fit", label: "Not Fit", dot: "bg-danger" },
+  { key: "agreement_sent", label: "Agreement Sent", dot: "bg-emerald-500" },
+  { key: "signed", label: "Signed", dot: "bg-success" },
 ];
 
 // Fixed card height + windowed rendering per column, same principle as the
@@ -64,7 +64,7 @@ export default function ProspectBoard({ prospects }: { prospects: Prospect[] }) 
       {STAGES.map((col) => {
         const cards = optimistic.filter((p) => p.stage === col.key);
         return (
-          <Column key={col.key} label={col.label} cards={cards} onDragStart={setDragId} onDrop={() => onDrop(col.key)} />
+          <Column key={col.key} label={col.label} dot={col.dot} cards={cards} onDragStart={setDragId} onDrop={() => onDrop(col.key)} />
         );
       })}
     </div>
@@ -73,11 +73,13 @@ export default function ProspectBoard({ prospects }: { prospects: Prospect[] }) 
 
 function Column({
   label,
+  dot,
   cards,
   onDragStart,
   onDrop,
 }: {
   label: string;
+  dot: string;
   cards: Prospect[];
   onDragStart: (id: string) => void;
   onDrop: () => void;
@@ -99,7 +101,10 @@ function Column({
       className="flex w-64 shrink-0 flex-col rounded-2xl border border-border bg-surface-subtle/40 p-2"
     >
       <div className="mb-2 flex items-center justify-between px-1.5 py-1">
-        <p className="text-xs font-medium uppercase tracking-wide text-faint">{label}</p>
+        <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-faint">
+          <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
+          {label}
+        </p>
         <span className="text-xs text-faint">{cards.length}</span>
       </div>
 
