@@ -19,6 +19,7 @@ import {
   Sparkles,
   BookOpen,
   Rocket,
+  Inbox,
 } from "lucide-react";
 
 type NavItem = { href: string; label: string; icon: typeof Home; badge?: number };
@@ -66,6 +67,7 @@ export default function Sidebar({
           label: "Revenue",
           items: [
             { href: "/prospects", label: "RR CRM", icon: Sparkles },
+            { href: "/inbox", label: "Inbox", icon: Inbox },
             { href: "/clients", label: "Clients", icon: Building2 },
             { href: "/opportunities", label: "Opportunities", icon: Target },
             { href: "/finance", label: "Finance", icon: Wallet },

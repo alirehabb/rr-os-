@@ -119,6 +119,44 @@ export type Database = {
           },
         ]
       }
+      ai_agent_config: {
+        Row: {
+          auto_reply_enabled: boolean
+          guidelines: string | null
+          id: string
+          knowledge_base: string | null
+          tone: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          auto_reply_enabled?: boolean
+          guidelines?: string | null
+          id?: string
+          knowledge_base?: string | null
+          tone?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          auto_reply_enabled?: boolean
+          guidelines?: string | null
+          id?: string
+          knowledge_base?: string | null
+          tone?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_config_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
