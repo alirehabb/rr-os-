@@ -97,6 +97,59 @@ export async function getRecentReplies(limit = 25): Promise<InstantlyReply[]> {
   }
 }
 
+export type ThreadState = {
+  threadId: string;
+  eaccount: string;
+  subject: string;
+  lastMessageId: string;
+  lastMessageAt: string;
+  lastMessageFromLead: boolean;
+  leadMessagePreview: string;
+};
+
+// For proactive follow-up (rule 9): finds the most recent message in a
+// lead's thread regardless of direction, so the cron can tell "they went
+// quiet after our last message" (follow up) apart from "they just replied"
+// (that's the reactive pipeline's job, not this one). Uses the `search`
+// query param, confirmed working against the real API — the `thread_id`
+// param alone was seen returning occasional items from a different thread.
+export async function getLatestThreadState(leadEmail: string): Promise<ThreadState | null> {
+  const apiKey = process.env.INSTANTLY_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const res = await fetch(`https://api.instantly.ai/api/v2/emails?limit=50&search=${encodeURIComponent(leadEmail)}`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const items = (json.items ?? []) as Record<string, unknown>[];
+    const forThisLead = items.filter((item) => item.lead === leadEmail);
+    if (forThisLead.length === 0) return null;
+
+    forThisLead.sort((a, b) => {
+      const at = new Date(String(a.timestamp_email ?? a.timestamp_created ?? 0)).getTime();
+      const bt = new Date(String(b.timestamp_email ?? b.timestamp_created ?? 0)).getTime();
+      return bt - at;
+    });
+    const latest = forThisLead[0];
+    const fromLead = latest.ue_type === 2 && String(latest.from_address_email ?? "").toLowerCase() === leadEmail.toLowerCase();
+    const html = String((latest.body as { html?: string } | undefined)?.html ?? "");
+
+    return {
+      threadId: String(latest.thread_id ?? ""),
+      eaccount: String(latest.eaccount ?? ""),
+      subject: String(latest.subject ?? ""),
+      lastMessageId: String(latest.id),
+      lastMessageAt: String(latest.timestamp_email ?? latest.timestamp_created ?? ""),
+      lastMessageFromLead: fromLead,
+      leadMessagePreview: fromLead ? extractNewMessageText(html) : "",
+    };
+  } catch {
+    return null;
+  }
+}
+
 // Rule 2 (Human Ownership Override) is the single most important gate in
 // the whole agent: if Ali has sent anything into this thread, the agent
 // must never act on it again, full stop. This is checked in code rather
