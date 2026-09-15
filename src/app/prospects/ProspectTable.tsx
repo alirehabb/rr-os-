@@ -42,6 +42,20 @@ const STAGE_TONE: Record<string, "neutral" | "accent" | "success" | "warning" | 
   signed: "success",
 };
 
+// Won at the top, dead leads at the bottom — the pipeline read top to
+// bottom the way the user actually scans it, not alphabetically.
+export const STAGE_RANK: Record<string, number> = {
+  signed: 0,
+  agreement_sent: 1,
+  call_completed: 2,
+  follow_up: 3,
+  call_booked: 4,
+  interested: 5,
+  lead: 6,
+  no_show: 7,
+  not_fit: 8,
+};
+
 type SortKey = "company" | "stage" | "next_action_date" | "updated_at";
 
 // Fixed row height + windowed rendering: only rows scrolled into view (plus
@@ -56,8 +70,8 @@ export default function ProspectTable({ prospects }: { prospects: Prospect[] }) 
   const [query, setQuery] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
-  const [sortKey, setSortKey] = useState<SortKey>("updated_at");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [sortKey, setSortKey] = useState<SortKey>("stage");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [scrollTop, setScrollTop] = useState(0);
   const viewportRef = useRef<HTMLDivElement>(null);
   const [viewportHeight, setViewportHeight] = useState(600);
@@ -79,7 +93,7 @@ export default function ProspectTable({ prospects }: { prospects: Prospect[] }) 
     filtered = filtered.sort((a, b) => {
       let cmp = 0;
       if (sortKey === "company") cmp = a.company_name.localeCompare(b.company_name);
-      else if (sortKey === "stage") cmp = a.stage.localeCompare(b.stage);
+      else if (sortKey === "stage") cmp = (STAGE_RANK[a.stage] ?? 99) - (STAGE_RANK[b.stage] ?? 99);
       else if (sortKey === "next_action_date") cmp = (a.next_action_date ?? "").localeCompare(b.next_action_date ?? "");
       else cmp = a.updated_at.localeCompare(b.updated_at);
       return sortDir === "asc" ? cmp : -cmp;
