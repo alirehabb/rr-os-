@@ -48,6 +48,15 @@ export default async function AIAgentSettingsPage() {
             <Field label="Knowledge base" hint="What Rehab Revenue is, pricing, offer details, objection handling, anything it should draw from">
               <Textarea name="knowledge_base" defaultValue={config?.knowledge_base ?? ""} rows={8} />
             </Field>
+            <Field label="Discovery call booking link" hint="Real Calendly link for Ali's discovery calls. Without this, the agent will never invent one, it will just say a human will follow up to schedule">
+              <input
+                name="booking_link"
+                type="url"
+                defaultValue={config?.booking_link ?? ""}
+                placeholder="https://calendly.com/..."
+                className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-accent/40"
+              />
+            </Field>
             <Button type="submit">Save</Button>
           </Card>
         </form>

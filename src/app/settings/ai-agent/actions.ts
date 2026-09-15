@@ -12,11 +12,12 @@ export async function saveAIAgentConfig(formData: FormData) {
   const tone = String(formData.get("tone") ?? "").trim() || null;
   const guidelines = String(formData.get("guidelines") ?? "").trim() || null;
   const knowledge_base = String(formData.get("knowledge_base") ?? "").trim() || null;
+  const booking_link = String(formData.get("booking_link") ?? "").trim() || null;
 
   const { data: config } = await supabase.from("ai_agent_config").select("id").limit(1).single();
   if (!config) return;
 
-  await supabase.from("ai_agent_config").update({ tone, guidelines, knowledge_base, updated_by: user?.id }).eq("id", config.id);
+  await supabase.from("ai_agent_config").update({ tone, guidelines, knowledge_base, booking_link, updated_by: user?.id }).eq("id", config.id);
   revalidatePath("/settings/ai-agent");
 }
 

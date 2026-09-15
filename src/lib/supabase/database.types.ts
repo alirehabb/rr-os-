@@ -122,6 +122,7 @@ export type Database = {
       ai_agent_config: {
         Row: {
           auto_reply_enabled: boolean
+          booking_link: string | null
           guidelines: string | null
           id: string
           knowledge_base: string | null
@@ -131,6 +132,7 @@ export type Database = {
         }
         Insert: {
           auto_reply_enabled?: boolean
+          booking_link?: string | null
           guidelines?: string | null
           id?: string
           knowledge_base?: string | null
@@ -140,6 +142,7 @@ export type Database = {
         }
         Update: {
           auto_reply_enabled?: boolean
+          booking_link?: string | null
           guidelines?: string | null
           id?: string
           knowledge_base?: string | null

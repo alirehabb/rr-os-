@@ -57,7 +57,7 @@ export async function GET(req: Request) {
     // booked, progressed, or been marked not a fit.
     const { data: prospect } = await supabase
       .from("prospects")
-      .select("stage")
+      .select("stage, contact_name")
       .eq("contact_email", reply.leadEmail)
       .maybeSingle();
     if (prospect && SKIP_STAGES.has(prospect.stage)) {
@@ -76,7 +76,15 @@ NOT_INTERESTED = rejection, unsubscribe, hostility, spam complaint, legal threat
 UNCLEAR = anything ambiguous that doesn't clearly fit either category.
 
 Email: "${reply.preview}"`,
-      { maxTokens: 10 },
+      // A reasoning model spends part of its token budget on invisible
+      // "thinking" tokens before the visible answer. Verified live: 10 was
+      // always empty, and even 40 truncated mid-thought on a genuinely
+      // ambiguous reply (finish_reason: "length", zero visible content).
+      // An empty classification fails safe (treated as not-interested, so
+      // it's skipped rather than sent) but that's truncation masquerading
+      // as a business decision, not a real UNCLEAR verdict — 80 gives the
+      // model enough room to actually finish reasoning before answering.
+      { maxTokens: 80 },
     );
     const verdict = (classification ?? "").trim().toUpperCase();
     if (!verdict.startsWith("INTERESTED")) {
@@ -99,6 +107,7 @@ Email: "${reply.preview}"`,
 
     const draft = await askAI(
       `A prospect replied to our outreach email showing real interest. Write a reply that continues this exact conversation.
+Their name: ${prospect?.contact_name || "unknown, do not guess it or use a placeholder, skip the name or use \"Hi there\""}
 Their message: "${reply.preview}"
 
 Follow every rule in the guidelines below exactly. Output just the email body, no subject line, no signature block beyond a first-name sign-off.`,
@@ -110,6 +119,11 @@ ${config.guidelines ?? "none set yet"}
 
 KNOWLEDGE BASE:
 ${config.knowledge_base ?? "none set yet"}
+
+BOOKING LINK: ${config.booking_link ?? "none configured yet"}
+${config.booking_link ? `When moving them toward a call, use this exact link: ${config.booking_link}` : "No real booking link exists yet. NEVER invent one or write a placeholder like [INSERT LINK]. If it's time to book a call, say a human will follow up to find a time instead."}
+
+Never use bracket placeholders of any kind (e.g. [Prospect Name], [Company], [INSERT LINK]). If you don't know their name, skip the greeting or use "Hi there" instead of guessing or leaving a blank.
 
 No em dashes. No AI-sounding language.`,
         maxTokens: 400,

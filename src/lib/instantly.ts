@@ -35,7 +35,18 @@ export async function getRecentReplies(limit = 25): Promise<InstantlyReply[]> {
     const items = (json.items ?? []) as Record<string, unknown>[];
 
     return items
-      .filter((item) => item.ue_type === 2 && typeof item.lead === "string")
+      .filter((item) => {
+        // ue_type 2 means "landed in this mailbox," not "written by the
+        // lead" — a message Ali sends by hitting reply-all also lands here
+        // as ue_type 2, since it's inbound to Sundeep's connected account.
+        // Confirmed against real data: two of Ali's own replies showed up
+        // with ue_type 2 and from_address_email = ali@rehab-revenue.com.
+        // Only a message actually authored by the lead counts as a reply
+        // to draft against.
+        if (item.ue_type !== 2 || typeof item.lead !== "string") return false;
+        const from = String(item.from_address_email ?? "").toLowerCase();
+        return from === String(item.lead).toLowerCase();
+      })
       .map((item) => {
         const fromJson = (item.from_address_json as { name?: string; address?: string }[] | undefined)?.[0];
         return {
