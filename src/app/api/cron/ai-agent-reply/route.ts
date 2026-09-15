@@ -1,6 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/service";
-import { getRecentReplies } from "@/lib/instantly";
-import { sendEmail } from "@/lib/email";
+import { getRecentReplies, replyToEmail } from "@/lib/instantly";
 import { askAI } from "@/lib/ai";
 
 // Same shared-secret guard as /api/cron/chase. Vercel's schedule below is
@@ -41,18 +40,21 @@ Their message: ${reply.preview}
 
 Reply in the tone and using the guidelines/knowledge below. Output just the email body, no subject line.`,
       {
-        system: `Tone: ${config.tone ?? "friendly, direct, plain English"}. Guidelines: ${config.guidelines ?? "none set"}. Knowledge base: ${config.knowledge_base ?? "none set"}. No em dashes.`,
+        system: `You are writing as the person whose mailbox this thread is running through (${reply.eaccount}) — the lead is replying to them directly, not to Rehab Revenue as a company. Tone: ${config.tone ?? "friendly, direct, plain English"}. Guidelines: ${config.guidelines ?? "none set"}. Knowledge base: ${config.knowledge_base ?? "none set"}. No em dashes.`,
         maxTokens: 350,
       },
     );
 
+    // Replies go back into the Instantly thread itself (same account the
+    // lead already emailed), never out through a separate address — Sarah's
+    // inbox is an unrelated hiring mailbox and has nothing to do with this.
     let delivery_status: "sent" | "failed" | "no_draft" = "no_draft";
     if (draft) {
       const html = draft
         .split("\n\n")
         .map((p) => `<p>${p.replace(/\n/g, "<br/>")}</p>`)
         .join("");
-      const ok = await sendEmail({ to: reply.leadEmail, subject: `Re: ${reply.subject}`, html });
+      const ok = await replyToEmail({ eaccount: reply.eaccount, replyToUuid: reply.id, subject: `Re: ${reply.subject}`, html });
       delivery_status = ok ? "sent" : "failed";
       if (ok) sent++;
     }
@@ -62,7 +64,7 @@ Reply in the tone and using the guidelines/knowledge below. Output just the emai
       action: "ai_agent_auto_reply",
       target_type: "instantly_reply",
       target_id: reply.id,
-      after: { to: reply.leadEmail, draft, delivery_status },
+      after: { eaccount: reply.eaccount, lead: reply.leadEmail, draft, delivery_status },
     });
   }
 

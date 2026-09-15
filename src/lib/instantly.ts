@@ -12,6 +12,11 @@ export type InstantlyReply = {
   html: string;
   receivedAt: string;
   campaignId: string | null;
+  // The Instantly-connected mailbox this thread is running through (e.g.
+  // Sundeep's account) — a reply must go out from this same account, not
+  // from some other Rehab Revenue address, or it lands in a thread the
+  // lead never wrote to.
+  eaccount: string;
 };
 
 export async function getRecentReplies(limit = 25): Promise<InstantlyReply[]> {
@@ -39,9 +44,39 @@ export async function getRecentReplies(limit = 25): Promise<InstantlyReply[]> {
           html: String((item.body as { html?: string } | undefined)?.html ?? ""),
           receivedAt: String(item.timestamp_email ?? item.timestamp_created ?? new Date().toISOString()),
           campaignId: (item.campaign_id as string) ?? null,
+          eaccount: String(item.eaccount ?? ""),
         };
       });
   } catch {
     return [];
+  }
+}
+
+// Replies land back inside the same Instantly thread the lead is already
+// reading, sent from that thread's own connected mailbox (Sundeep's
+// account, in practice) — never a separate outside email address.
+export async function replyToEmail({
+  eaccount,
+  replyToUuid,
+  subject,
+  html,
+}: {
+  eaccount: string;
+  replyToUuid: string;
+  subject: string;
+  html: string;
+}): Promise<boolean> {
+  const apiKey = process.env.INSTANTLY_API_KEY;
+  if (!apiKey) return false;
+
+  try {
+    const res = await fetch("https://api.instantly.ai/api/v2/emails/reply", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ eaccount, reply_to_uuid: replyToUuid, subject, body: { html } }),
+    });
+    return res.ok;
+  } catch {
+    return false;
   }
 }
