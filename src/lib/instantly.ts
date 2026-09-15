@@ -22,6 +22,34 @@ export type InstantlyReply = {
 
 const ALI_EMAIL = "ali@rehab-revenue.com";
 
+// Instantly's own content_preview field truncates early enough to cut off
+// the actual ask — confirmed live on a real reply where content_preview
+// stopped at "interested in chatting b" and never showed the "Can you send
+// me more information? What's the pay structure?" that followed. The real
+// message text has to come from the HTML body instead: strip the quoted
+// thread history (everything from the first blockquote/reply-chain marker
+// on) so only the lead's actual new text is used, then strip tags.
+function extractNewMessageText(html: string): string {
+  if (!html) return "";
+  const beforeQuote = html.split(/<blockquote/i)[0].split(/<div[^>]*class="gmail_quote"/i)[0];
+  const text = beforeQuote
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div)>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    // Trailing Gmail/Outlook attribution line ("On Fri, Sep 11... wrote:")
+    // that sits just before the quoted blockquote, not inside it.
+    .replace(/\n?On [\s\S]{0,120}wrote:\s*$/i, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return text.slice(0, 2000);
+}
+
 export async function getRecentReplies(limit = 25): Promise<InstantlyReply[]> {
   const apiKey = process.env.INSTANTLY_API_KEY;
   if (!apiKey) return [];
@@ -49,13 +77,15 @@ export async function getRecentReplies(limit = 25): Promise<InstantlyReply[]> {
       })
       .map((item) => {
         const fromJson = (item.from_address_json as { name?: string; address?: string }[] | undefined)?.[0];
+        const html = String((item.body as { html?: string } | undefined)?.html ?? "");
+        const fullText = extractNewMessageText(html);
         return {
           id: String(item.id),
           leadEmail: String(item.lead),
           fromName: fromJson?.name || String(item.lead).split("@")[0],
           subject: String(item.subject ?? ""),
-          preview: String(item.content_preview ?? "").slice(0, 500),
-          html: String((item.body as { html?: string } | undefined)?.html ?? ""),
+          preview: fullText || String(item.content_preview ?? "").slice(0, 500),
+          html,
           receivedAt: String(item.timestamp_email ?? item.timestamp_created ?? new Date().toISOString()),
           campaignId: (item.campaign_id as string) ?? null,
           threadId: String(item.thread_id ?? ""),

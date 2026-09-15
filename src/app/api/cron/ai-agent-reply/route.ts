@@ -36,11 +36,18 @@ export async function GET(req: Request) {
   const results: { replyId: string; outcome: string }[] = [];
 
   for (const reply of fresh) {
+    // A "no_draft"/"failed" outcome is a transient AI or send hiccup, not a
+    // real decision — verified live that a Groq call can occasionally
+    // return empty on an otherwise-successful request. Only "sent" and
+    // deliberate "skipped" gate outcomes count as permanently handled, so a
+    // failed attempt gets retried on the next cron run instead of being
+    // silently dropped forever.
     const { data: alreadyHandled } = await supabase
       .from("audit_log")
       .select("id")
       .eq("action", "ai_agent_auto_reply")
       .eq("target_id", reply.id)
+      .in("after->>status", ["sent", "skipped"])
       .maybeSingle();
     if (alreadyHandled) continue;
 
