@@ -2,6 +2,15 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getLatestThreadState, getFullThread, hasHumanReplied, replyToEmail } from "@/lib/instantly";
 import { askAI } from "@/lib/ai";
 
+// Real incident: a lead who had explicitly replied "not for me" kept
+// getting followed up anyway, because campaign membership alone was
+// treated as permanent consent to keep nudging — there was no check
+// against the CRM stage at all, and no check of what the conversation
+// actually said before drafting the next nudge. SKIP_STAGES is the same
+// cheap, no-API-call gate the old CRM-wide sweep had before the campaign
+// rewrite dropped it.
+const SKIP_STAGES = new Set(["call_booked", "no_show", "call_completed", "agreement_sent", "signed", "not_fit"]);
+
 const STALE_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
 const MIN_GAP_BETWEEN_FOLLOWUPS_MS = 4 * 24 * 60 * 60 * 1000;
 export const DEDUPE_WINDOW_MS = 20 * 60 * 60 * 1000;
@@ -120,6 +129,11 @@ export async function runFollowUpForMembers(supabase: SupabaseAny, config: Follo
     const campaign = member.campaigns;
     if (!prospect || !campaign || !prospect.contact_email) continue;
 
+    if (SKIP_STAGES.has(prospect.stage)) {
+      results.push({ prospectId: prospect.id, lead: prospect.contact_email, outcome: `skipped: stage_${prospect.stage}` });
+      await logOutcome(supabase, prospect.id, member.campaign_id, campaign.channel, "skipped", { reason: `stage_${prospect.stage}` });
+      continue;
+    }
     if (prospect.last_ai_followup_at && Date.now() - new Date(prospect.last_ai_followup_at).getTime() < DEDUPE_WINDOW_MS) {
       results.push({ prospectId: prospect.id, lead: prospect.contact_email, outcome: "skipped: already_followed_up_today" });
       await logOutcome(supabase, prospect.id, member.campaign_id, campaign.channel, "skipped", { reason: "already_followed_up_today" });
@@ -147,7 +161,25 @@ export async function runFollowUpForMembers(supabase: SupabaseAny, config: Follo
       continue;
     }
 
-    // 'sarah' channel: always draft-only.
+    // 'sarah' channel: draft-only (a human reviews before anything sends),
+    // but still worth not drafting at all against a lead who's on record
+    // as having declined — same check as the instantly path, just against
+    // qualification_notes since there's no thread to read here.
+    if (prospect.qualification_notes) {
+      const verdict = await askAI(
+        `Read these CRM notes on a sales prospect. Do they indicate the prospect has clearly rejected, declined, or asked to stop being contacted? Reply with exactly one word: REJECTED or OPEN.
+
+Notes: ${prospect.qualification_notes}`,
+        { maxTokens: 40 },
+      );
+      if ((verdict ?? "").trim().toUpperCase().startsWith("REJECTED")) {
+        await supabase.from("prospects").update({ stage: "not_fit" }).eq("id", prospect.id);
+        results.push({ prospectId: prospect.id, lead: prospect.contact_email, outcome: "skipped: prospect_rejected" });
+        await logOutcome(supabase, prospect.id, member.campaign_id, "sarah", "skipped", { reason: "prospect_rejected" });
+        continue;
+      }
+    }
+
     const draft = await askAI(
       `Write a short, natural follow-up email to a prospect in an active outreach campaign.
 Company: ${prospect.company_name}
@@ -214,6 +246,25 @@ async function handleInstantlyFollowUp(
     .slice(-6)
     .map((m) => `${m.fromLead ? "Them" : "Us"}: ${m.text.slice(0, 500)}`)
     .join("\n\n");
+
+  // Real incident: a lead who explicitly replied "not for me" kept getting
+  // nudged toward a call anyway — nothing here ever checked what was
+  // actually said before drafting the next follow-up. This mirrors the
+  // reactive pipeline's own classification gate, applied here for the
+  // first time.
+  if (recentContext) {
+    const verdict = await askAI(
+      `Read this real conversation with a sales prospect. Has the prospect clearly rejected, declined, or asked to stop being contacted, at any point? Reply with exactly one word: REJECTED or OPEN.
+
+Conversation:
+${recentContext}`,
+      { maxTokens: 40 },
+    );
+    if ((verdict ?? "").trim().toUpperCase().startsWith("REJECTED")) {
+      await supabase.from("prospects").update({ stage: "not_fit" }).eq("id", prospect.id);
+      return { outcome: "skipped", reason: "prospect_rejected" };
+    }
+  }
 
   const draft = await askAI(
     `This prospect showed real interest earlier but has gone quiet since our last message. Write a short, natural follow-up that continues the conversation, it should NOT read like a new cold outreach or a generic "just following up." Reference something real from the conversation below if it helps, don't ask something they already answered.
