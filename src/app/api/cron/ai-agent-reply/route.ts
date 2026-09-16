@@ -2,6 +2,11 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getRecentReplies, hasHumanReplied, replyToEmail } from "@/lib/instantly";
 import { askAI } from "@/lib/ai";
 
+// Instantly's rate limit forces real pacing between calls (~3.2s each) —
+// cheap insurance here too, even though this pipeline usually processes
+// far fewer replies per run than the follow-up sweep does.
+export const maxDuration = 60;
+
 const ALI_EMAIL = "ali@rehab-revenue.com";
 
 // Stages that mean the conversation has already moved past "interested

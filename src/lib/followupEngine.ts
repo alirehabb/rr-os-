@@ -94,12 +94,28 @@ async function markFollowedUp(supabase: SupabaseAny, prospectId: string) {
 // Shared by the hourly cron (all active members) and the manual "Run now"
 // button on a campaign's detail page (just that campaign's members) — same
 // gates, same logging, so there's exactly one code path to trust.
+// Instantly's real rate limit (20 req/min, confirmed live) plus the ~3.2s
+// pacing in lib/instantly.ts means a serverless function has a hard ceiling
+// on how many Instantly-touching members it can get through before Vercel's
+// own execution timeout hits (Hobby plan: 60s max). At up to 2 Instantly
+// calls per candidate, 8 comfortably fits with margin; the ones skipped for
+// budget this run get picked up on the next hourly tick, sorted so the
+// longest-waiting members go first instead of the same few every time.
+const MAX_INSTANTLY_MEMBERS_PER_RUN = 8;
+
 export async function runFollowUpForMembers(supabase: SupabaseAny, config: FollowUpConfig, members: FollowUpMember[]): Promise<{ sent: number; drafted: number; results: FollowUpOutcome[] }> {
   const results: FollowUpOutcome[] = [];
   let sent = 0;
   let drafted = 0;
+  let instantlyProcessed = 0;
 
-  for (const member of members) {
+  const ordered = [...members].sort((a, b) => {
+    const at = a.prospects?.last_ai_followup_at ? new Date(a.prospects.last_ai_followup_at).getTime() : 0;
+    const bt = b.prospects?.last_ai_followup_at ? new Date(b.prospects.last_ai_followup_at).getTime() : 0;
+    return at - bt; // never-run (0) first, then longest-waiting
+  });
+
+  for (const member of ordered) {
     const prospect = member.prospects;
     const campaign = member.campaigns;
     if (!prospect || !campaign || !prospect.contact_email) continue;
@@ -116,6 +132,11 @@ export async function runFollowUpForMembers(supabase: SupabaseAny, config: Follo
     }
 
     if (campaign.channel === "instantly") {
+      if (instantlyProcessed >= MAX_INSTANTLY_MEMBERS_PER_RUN) {
+        results.push({ prospectId: prospect.id, lead: prospect.contact_email, outcome: "skipped: run_budget_reached_try_next_hour" });
+        continue;
+      }
+      instantlyProcessed++;
       const { outcome, reason, draft } = await handleInstantlyFollowUp(supabase, prospect, config);
       results.push({ prospectId: prospect.id, lead: prospect.contact_email, outcome: reason ? `${outcome}: ${reason}` : outcome });
       await logOutcome(supabase, prospect.id, member.campaign_id, "instantly", outcome, { reason, draft });

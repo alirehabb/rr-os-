@@ -1,6 +1,11 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { runFollowUpForMembers } from "@/lib/followupEngine";
 
+// Instantly's rate limit forces real pacing between calls (~3.2s each) —
+// the default serverless timeout isn't enough headroom for even the
+// engine's own per-run member cap. 60s is the max Vercel allows on Hobby.
+export const maxDuration = 60;
+
 // Opt-in only: this only ever touches a prospect who was explicitly dragged
 // into a campaign at /follow-ups — never a blind sweep of every CRM lead at
 // a given stage. A campaign's channel decides the trust level:

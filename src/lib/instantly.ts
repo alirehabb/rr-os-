@@ -22,6 +22,32 @@ export type InstantlyReply = {
 
 const ALI_EMAIL = "ali@rehab-revenue.com";
 
+// Real incident: a 45-member campaign run burned through Instantly's rate
+// limit almost immediately (confirmed live: 20 requests/minute, hard 429
+// after that), and every rate-limited call was silently treated the same
+// as "no thread exists" — 30 of 45 real leads got misreported that way in
+// one run even though they all had real threads. This paces every call at
+// module scope (shared across all functions below, correct for the single
+// cron invocation that actually causes the burst) to stay under the limit,
+// and retries once on a 429 instead of giving up immediately.
+const MIN_INTERVAL_MS = 3200; // 60_000 / 20 requests-per-minute, plus margin
+let lastCallAt = 0;
+
+async function throttledFetch(url: string, apiKey: string, init?: RequestInit): Promise<Response> {
+  const wait = lastCallAt + MIN_INTERVAL_MS - Date.now();
+  if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+  lastCallAt = Date.now();
+
+  let res = await fetch(url, { ...init, headers: { ...init?.headers, Authorization: `Bearer ${apiKey}` } });
+  if (res.status === 429) {
+    const retryAfterHeader = Number(res.headers.get("retry-after"));
+    await new Promise((resolve) => setTimeout(resolve, (retryAfterHeader > 0 ? retryAfterHeader : 60) * 1000));
+    lastCallAt = Date.now();
+    res = await fetch(url, { ...init, headers: { ...init?.headers, Authorization: `Bearer ${apiKey}` } });
+  }
+  return res;
+}
+
 // Instantly's own content_preview field truncates early enough to cut off
 // the actual ask — confirmed live on a real reply where content_preview
 // stopped at "interested in chatting b" and never showed the "Can you send
@@ -66,9 +92,7 @@ export async function getFullThread(leadEmail: string): Promise<ThreadMessage[]>
   if (!apiKey) return [];
 
   try {
-    const res = await fetch(`https://api.instantly.ai/api/v2/emails?limit=50&search=${encodeURIComponent(leadEmail)}`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
+    const res = await throttledFetch(`https://api.instantly.ai/api/v2/emails?limit=50&search=${encodeURIComponent(leadEmail)}`, apiKey);
     if (!res.ok) return [];
     const json = await res.json();
     const items = (json.items ?? []) as Record<string, unknown>[];
@@ -96,9 +120,7 @@ export async function getRecentReplies(limit = 25): Promise<InstantlyReply[]> {
   if (!apiKey) return [];
 
   try {
-    const res = await fetch(`https://api.instantly.ai/api/v2/emails?limit=${limit}`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
+    const res = await throttledFetch(`https://api.instantly.ai/api/v2/emails?limit=${limit}`, apiKey);
     if (!res.ok) return [];
     const json = await res.json();
     const items = (json.items ?? []) as Record<string, unknown>[];
@@ -159,9 +181,7 @@ export async function getLatestThreadState(leadEmail: string): Promise<ThreadSta
   if (!apiKey) return null;
 
   try {
-    const res = await fetch(`https://api.instantly.ai/api/v2/emails?limit=50&search=${encodeURIComponent(leadEmail)}`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
+    const res = await throttledFetch(`https://api.instantly.ai/api/v2/emails?limit=50&search=${encodeURIComponent(leadEmail)}`, apiKey);
     if (!res.ok) return null;
     const json = await res.json();
     const items = (json.items ?? []) as Record<string, unknown>[];
@@ -202,9 +222,7 @@ export async function hasHumanReplied(threadId: string): Promise<boolean> {
   if (!apiKey || !threadId) return false;
 
   try {
-    const res = await fetch(`https://api.instantly.ai/api/v2/emails?limit=25&thread_id=${encodeURIComponent(threadId)}`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
+    const res = await throttledFetch(`https://api.instantly.ai/api/v2/emails?limit=25&thread_id=${encodeURIComponent(threadId)}`, apiKey);
     if (!res.ok) return false;
     const json = await res.json();
     const items = (json.items ?? []) as Record<string, unknown>[];
@@ -236,9 +254,9 @@ export async function replyToEmail({
   if (!apiKey) return false;
 
   try {
-    const res = await fetch("https://api.instantly.ai/api/v2/emails/reply", {
+    const res = await throttledFetch("https://api.instantly.ai/api/v2/emails/reply", apiKey, {
       method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         eaccount,
         reply_to_uuid: replyToUuid,

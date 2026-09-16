@@ -7,6 +7,10 @@ import { askAI } from "@/lib/ai";
 import { runFollowUpForMembers, type FollowUpMember } from "@/lib/followupEngine";
 import { revalidatePath } from "next/cache";
 
+// runCampaignNow shares the same Instantly-rate-limit pacing as the cron
+// route — same headroom needed.
+export const maxDuration = 60;
+
 export async function createCampaign(formData: FormData) {
   const supabase = await createClient();
   const {
