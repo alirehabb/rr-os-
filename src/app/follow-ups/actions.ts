@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email";
 import { getFullThread, getLatestThreadState, replyToEmail } from "@/lib/instantly";
 import { askAI } from "@/lib/ai";
+import { runFollowUpForMembers, type FollowUpMember } from "@/lib/followupEngine";
 import { revalidatePath } from "next/cache";
 
 export async function createCampaign(formData: FormData) {
@@ -130,4 +131,24 @@ export async function dismissCampaignDraft(draftId: string) {
   const supabase = await createClient();
   await supabase.from("followup_drafts").update({ status: "dismissed" }).eq("id", draftId);
   revalidatePath("/follow-ups");
+}
+
+// "See it happening in real time" without waiting for the hourly cron —
+// runs the exact same engine, scoped to just this campaign's active
+// members, so testing/checking a campaign never has to wait an hour.
+export async function runCampaignNow(campaignId: string) {
+  const supabase = await createClient();
+  const { data: config } = await supabase.from("ai_agent_config").select("*").limit(1).single();
+  if (!config?.auto_reply_enabled) throw new Error("Auto-reply is off in Settings > AI Reply Agent");
+
+  const { data: members } = await supabase
+    .from("campaign_prospects")
+    .select("id, campaign_id, campaigns(channel, name), prospects(id, contact_email, contact_name, company_name, stage, source, timezone, qualification_notes, last_ai_followup_at)")
+    .eq("campaign_id", campaignId)
+    .eq("status", "active");
+
+  const result = await runFollowUpForMembers(supabase, config, (members ?? []) as FollowUpMember[]);
+  revalidatePath(`/follow-ups/campaigns/${campaignId}`);
+  revalidatePath("/follow-ups");
+  return { checked: (members ?? []).length, ...result };
 }

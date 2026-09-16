@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Plus, Send, X, Sparkles, Inbox as InboxIcon, ListChecks } from "lucide-react";
 import { Card, Button, Input, Select, Textarea, Badge, EmptyState } from "@/components/ui";
 import { useToast } from "@/components/toast";
@@ -158,9 +159,11 @@ function InboxView({ prospects, campaigns, campaignProspects }: { prospects: Pro
               onDrop={() => handleDrop(c.id)}
               className="rounded-xl border border-dashed border-border p-2.5 text-xs transition-colors hover:border-accent/50 hover:bg-accent/5"
             >
-              <p className="font-medium text-foreground">{c.name}</p>
+              <Link href={`/follow-ups/campaigns/${c.id}`} className="font-medium text-foreground hover:underline">
+                {c.name}
+              </Link>
               <p className="mt-0.5 text-[11px] text-faint">{c.channel === "instantly" ? "Instantly, auto-send" : "Sarah, review first"}</p>
-              <p className="mt-1 text-[11px] text-faint">{memberships.filter((m) => m.campaign_id === c.id).length} prospects · drop here</p>
+              <p className="mt-1 text-[11px] text-faint">{memberships.filter((m) => m.campaign_id === c.id).length} prospects · drop here, click name to open</p>
             </div>
           ))}
         </div>
