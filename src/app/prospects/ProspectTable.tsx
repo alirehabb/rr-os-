@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Badge, Input, Select } from "@/components/ui";
+import { displayCompanyName } from "@/lib/format";
 
 type Prospect = {
   id: string;
@@ -92,7 +93,7 @@ export default function ProspectTable({ prospects }: { prospects: Prospect[] }) 
     });
     filtered = filtered.sort((a, b) => {
       let cmp = 0;
-      if (sortKey === "company") cmp = a.company_name.localeCompare(b.company_name);
+      if (sortKey === "company") cmp = (a.contact_name || a.company_name).localeCompare(b.contact_name || b.company_name);
       else if (sortKey === "stage") cmp = (STAGE_RANK[a.stage] ?? 99) - (STAGE_RANK[b.stage] ?? 99);
       else if (sortKey === "next_action_date") cmp = (a.next_action_date ?? "").localeCompare(b.next_action_date ?? "");
       else cmp = a.updated_at.localeCompare(b.updated_at);
@@ -155,8 +156,8 @@ export default function ProspectTable({ prospects }: { prospects: Prospect[] }) 
 
       <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm shadow-black/[0.03]">
         <div className="grid gap-0 border-b border-border bg-surface-subtle/40 px-4 py-2.5" style={{ gridTemplateColumns: GRID_COLS }}>
-          <SortHeader label="Company" k="company" />
-          <p className="text-xs font-medium uppercase tracking-wide text-faint">Contact</p>
+          <SortHeader label="Contact" k="company" />
+          <p className="text-xs font-medium uppercase tracking-wide text-faint">Company</p>
           <SortHeader label="Stage" k="stage" />
           <p className="text-xs font-medium uppercase tracking-wide text-faint">Source</p>
           <SortHeader label="Next action" k="next_action_date" />
@@ -191,7 +192,7 @@ export default function ProspectTable({ prospects }: { prospects: Prospect[] }) 
                         href={locked ? `/clients/${p.converted_client_id}` : `/prospects/${p.id}`}
                         className="truncate font-medium text-foreground hover:underline"
                       >
-                        {p.company_name}
+                        {p.contact_name || displayCompanyName(p.company_name)}
                       </Link>
                       {p.is_demo && (
                         <Badge tone="accent" className="ml-1.5">
@@ -200,7 +201,7 @@ export default function ProspectTable({ prospects }: { prospects: Prospect[] }) 
                       )}
                     </div>
                     <div className="min-w-0 py-2.5 text-muted">
-                      {p.contact_name && <p className="truncate">{p.contact_name}</p>}
+                      <p className="truncate">{displayCompanyName(p.company_name)}</p>
                       {p.contact_email && <p className="truncate text-xs text-faint">{p.contact_email}</p>}
                     </div>
                     <div className="py-2.5">

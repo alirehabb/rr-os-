@@ -4,6 +4,7 @@ import Link from "next/link";
 import { updateProspectStage, convertProspectToClient } from "../actions";
 import { PageHeader, Card, Field, Input, Select, Textarea, Button } from "@/components/ui";
 import AIFollowUpDraft from "./AIFollowUpDraft";
+import { displayCompanyName } from "@/lib/format";
 
 const STAGES = [
   "lead",
@@ -26,7 +27,10 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
   return (
     <div className="flex-1">
       <div className="mx-auto max-w-xl px-6 py-10">
-        <PageHeader title={prospect.company_name} subtitle={`${prospect.contact_name ?? ""} · ${prospect.contact_email ?? ""}`} />
+        <PageHeader
+          title={prospect.contact_name || displayCompanyName(prospect.company_name)}
+          subtitle={`${displayCompanyName(prospect.company_name)} · ${prospect.contact_email ?? ""}`}
+        />
 
         {prospect.converted_client_id ? (
           <div className="mb-6 rounded-2xl bg-success-bg px-4 py-3 text-sm text-success">

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import { moveProspectStage } from "./actions";
+import { displayCompanyName } from "@/lib/format";
 
 type Prospect = {
   id: string;
@@ -55,7 +56,7 @@ export default function ProspectBoard({ prospects }: { prospects: Prospect[] }) 
     }
     setOptimistic((prev) => prev.map((p) => (p.id === dragId ? { ...p, stage } : p)));
     moveProspectStage(dragId, stage as Parameters<typeof moveProspectStage>[1]);
-    if (stage === "signed") toast(`${card.company_name} signed, Client 360 created`, "success");
+    if (stage === "signed") toast(`${displayCompanyName(card.company_name)} signed, Client 360 created`, "success");
     setDragId(null);
   }
 
@@ -140,8 +141,8 @@ function Column({
                   } ${stale && !locked ? "rr-urgent-pulse" : ""}`}
                 >
                   <Link href={locked ? `/clients/${p.converted_client_id}` : `/prospects/${p.id}`} draggable={false} className="block">
-                    <p className="truncate text-sm font-medium text-foreground">{p.company_name}</p>
-                    {p.contact_name && <p className="truncate text-xs text-muted">{p.contact_name}</p>}
+                    <p className="truncate text-sm font-medium text-foreground">{p.contact_name || displayCompanyName(p.company_name)}</p>
+                    <p className="truncate text-xs text-muted">{displayCompanyName(p.company_name)}</p>
                     <div className="mt-1.5 flex items-center gap-1.5">
                       {p.is_demo && <Badge tone="accent">Demo</Badge>}
                       {p.source && <span className="text-[11px] text-faint">{p.source}</span>}

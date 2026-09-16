@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Plus, Send, X, Sparkles, Inbox as InboxIcon, ListChecks } from "lucide-react";
 import { Card, Button, Input, Select, Textarea, Badge, EmptyState } from "@/components/ui";
 import { useToast } from "@/components/toast";
+import { displayCompanyName } from "@/lib/format";
 import {
   createCampaign,
   addToCampaign,
@@ -180,10 +181,10 @@ function InboxView({ prospects, campaigns, campaignProspects }: { prospects: Pro
               className={`cursor-pointer border-b border-border px-3 py-2.5 transition-colors hover:bg-surface-subtle/60 ${selected?.id === p.id ? "bg-accent/8" : ""}`}
             >
               <div className="flex items-center justify-between gap-2">
-                <p className="truncate text-sm font-medium text-foreground">{p.company_name}</p>
+                <p className="truncate text-sm font-medium text-foreground">{p.contact_name || displayCompanyName(p.company_name)}</p>
                 <span className="shrink-0 text-[10px] text-faint">{new Date(p.updated_at).toLocaleDateString()}</span>
               </div>
-              <p className="truncate text-xs text-muted">{p.contact_name ?? p.contact_email}</p>
+              <p className="truncate text-xs text-muted">{displayCompanyName(p.company_name)}</p>
               <div className="mt-1 flex flex-wrap items-center gap-1">
                 <Badge tone={p.source === "instantly" ? "accent" : "neutral"}>{p.source ?? "unknown"}</Badge>
                 <Badge>{p.stage.replace(/_/g, " ")}</Badge>
@@ -266,9 +267,9 @@ function ThreadPane({
     <div>
       <div className="mb-4 flex items-start justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">{prospect.company_name}</h2>
+          <h2 className="text-lg font-semibold text-foreground">{prospect.contact_name || displayCompanyName(prospect.company_name)}</h2>
           <p className="text-sm text-muted">
-            {prospect.contact_name} · {prospect.contact_email}
+            {displayCompanyName(prospect.company_name)} · {prospect.contact_email}
           </p>
         </div>
         <div className="flex gap-1">
@@ -359,7 +360,7 @@ function ReviewQueue({ drafts: initial }: { drafts: PendingDraft[] }) {
             draft={d}
             onDone={(sent) => {
               setDrafts((prev) => prev.filter((x) => x.id !== d.id));
-              if (sent) toast(`Sent to ${d.prospects?.company_name ?? "prospect"}`, "success");
+              if (sent) toast(`Sent to ${d.prospects?.contact_name || (d.prospects ? displayCompanyName(d.prospects.company_name) : "prospect")}`, "success");
             }}
           />
         </li>
@@ -392,9 +393,9 @@ function ReviewItem({ draft, onDone }: { draft: PendingDraft; onDone: (sent: boo
     <Card>
       <div className="mb-2 flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-foreground">{p?.company_name ?? "Unknown"}</p>
+          <p className="text-sm font-medium text-foreground">{p?.contact_name || (p ? displayCompanyName(p.company_name) : "Unknown")}</p>
           <p className="text-xs text-faint">
-            {p?.contact_name} · {p?.contact_email} · via {p?.source ?? "unknown"}
+            {p ? displayCompanyName(p.company_name) : ""} · {p?.contact_email} · via {p?.source ?? "unknown"}
           </p>
         </div>
         <Badge tone={draft.channel === "no_show" ? "warning" : "neutral"}>{draft.channel === "no_show" ? "No-show" : "External"}</Badge>
