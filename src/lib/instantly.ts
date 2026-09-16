@@ -50,6 +50,47 @@ function extractNewMessageText(html: string): string {
   return text.slice(0, 2000);
 }
 
+export type ThreadMessage = {
+  id: string;
+  fromLead: boolean;
+  fromAddress: string;
+  text: string;
+  sentAt: string;
+};
+
+// Full conversation history for one lead, oldest first — for a Gmail-style
+// reading pane, not a single "latest reply." Uses the same `search=` param
+// as getLatestThreadState (confirmed reliable; thread_id alone was not).
+export async function getFullThread(leadEmail: string): Promise<ThreadMessage[]> {
+  const apiKey = process.env.INSTANTLY_API_KEY;
+  if (!apiKey) return [];
+
+  try {
+    const res = await fetch(`https://api.instantly.ai/api/v2/emails?limit=50&search=${encodeURIComponent(leadEmail)}`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    const items = (json.items ?? []) as Record<string, unknown>[];
+
+    return items
+      .filter((item) => item.lead === leadEmail)
+      .map((item) => {
+        const html = String((item.body as { html?: string } | undefined)?.html ?? "");
+        return {
+          id: String(item.id),
+          fromLead: item.ue_type === 2 && String(item.from_address_email ?? "").toLowerCase() === leadEmail.toLowerCase(),
+          fromAddress: String(item.from_address_email ?? ""),
+          text: extractNewMessageText(html) || String(item.content_preview ?? ""),
+          sentAt: String(item.timestamp_email ?? item.timestamp_created ?? ""),
+        };
+      })
+      .sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
+  } catch {
+    return [];
+  }
+}
+
 export async function getRecentReplies(limit = 25): Promise<InstantlyReply[]> {
   const apiKey = process.env.INSTANTLY_API_KEY;
   if (!apiKey) return [];

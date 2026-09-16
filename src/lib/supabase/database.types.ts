@@ -282,6 +282,80 @@ export type Database = {
           },
         ]
       }
+      campaign_prospects: {
+        Row: {
+          added_at: string
+          campaign_id: string
+          id: string
+          prospect_id: string
+          status: string
+        }
+        Insert: {
+          added_at?: string
+          campaign_id: string
+          id?: string
+          prospect_id: string
+          status?: string
+        }
+        Update: {
+          added_at?: string
+          campaign_id?: string
+          id?: string
+          prospect_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_prospects_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_prospects_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaigns: {
+        Row: {
+          channel: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_demo: boolean
+          name: string
+        }
+        Insert: {
+          channel: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_demo?: boolean
+          name: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_demo?: boolean
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_reports: {
         Row: {
           client_id: string
