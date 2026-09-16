@@ -88,7 +88,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
               <p>Contact</p>
               <p>Last activity</p>
               <p>Status</p>
-              <p>Next eligible</p>
+              <p>Scheduled</p>
             </div>
             <ul>
               {(members ?? []).map((m) => {
@@ -97,29 +97,38 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
                 const activity = latestByProspect.get(p.id);
                 const status = activity?.after?.status as string | undefined;
                 const reason = activity?.after?.reason as string | undefined;
+                const draft = activity?.after?.draft as string | undefined;
                 return (
-                  <li key={m.id} className="grid grid-cols-[1.3fr_1fr_1fr_1.2fr] items-center gap-0 border-b border-border px-4 py-2.5 text-sm last:border-0 hover:bg-surface-subtle/40">
-                    <div className="min-w-0">
-                      <Link href={`/follow-ups`} className="truncate font-medium text-foreground hover:underline">
-                        {p.contact_name || displayCompanyName(p.company_name)}
-                      </Link>
-                      <p className="truncate text-xs text-faint">{displayCompanyName(p.company_name)}</p>
+                  <li key={m.id} className="border-b border-border last:border-0 hover:bg-surface-subtle/40">
+                    <div className="grid grid-cols-[1.3fr_1fr_1fr_1.2fr] items-center gap-0 px-4 py-2.5 text-sm">
+                      <div className="min-w-0">
+                        <Link href={`/follow-ups`} className="truncate font-medium text-foreground hover:underline">
+                          {p.contact_name || displayCompanyName(p.company_name)}
+                        </Link>
+                        <p className="truncate text-xs text-faint">{displayCompanyName(p.company_name)}</p>
+                      </div>
+                      <p className="text-xs text-faint">{activity ? new Date(activity.created_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "Never run"}</p>
+                      <div>
+                        {!status ? (
+                          <Badge tone="neutral">Not yet run</Badge>
+                        ) : status === "sent" ? (
+                          <Badge tone="success">Sent</Badge>
+                        ) : status === "drafted_for_review" ? (
+                          <Badge tone="accent">Drafted, awaiting review</Badge>
+                        ) : status === "failed" ? (
+                          <Badge tone="danger">Failed to send</Badge>
+                        ) : (
+                          <Badge tone="warning">{(reason ?? status).replace(/_/g, " ")}</Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-faint">{nextEligibleLabel(p.last_ai_followup_at, p.timezone)}</p>
                     </div>
-                    <p className="text-xs text-faint">{activity ? new Date(activity.created_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "Never run"}</p>
-                    <div>
-                      {!status ? (
-                        <Badge tone="neutral">Not yet run</Badge>
-                      ) : status === "sent" ? (
-                        <Badge tone="success">Sent</Badge>
-                      ) : status === "drafted_for_review" ? (
-                        <Badge tone="accent">Drafted, awaiting review</Badge>
-                      ) : status === "failed" ? (
-                        <Badge tone="danger">Failed to send</Badge>
-                      ) : (
-                        <Badge tone="warning">{(reason ?? status).replace(/_/g, " ")}</Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-faint">{nextEligibleLabel(p.last_ai_followup_at, p.timezone)}</p>
+                    {draft && (
+                      <details className="border-t border-border px-4 py-2">
+                        <summary className="cursor-pointer text-xs text-accent">View follow-up text</summary>
+                        <p className="mt-2 whitespace-pre-wrap rounded-xl bg-surface-subtle/60 p-3 text-xs text-muted">{draft}</p>
+                      </details>
+                    )}
                   </li>
                 );
               })}

@@ -134,7 +134,7 @@ Contact: ${prospect.contact_name ?? "unknown, use a generic greeting, no placeho
 Notes on file: ${prospect.qualification_notes ?? "none"}
 Source: ${prospect.source ?? "unknown"}
 
-It should read like a real person continuing an existing relationship, not a cold intro. Output ONLY the email body text, nothing else, no subject line, no "CC:"/"To:"/"Subject:" lines, no signature beyond a first-name sign-off.`,
+It should read like a real person continuing an existing relationship, not a cold intro. Every follow-up must end with a smooth, low-pressure nudge toward booking a call, not just a question left hanging, use the real booking link if one is configured, otherwise say you'd love to grab 15 minutes and ask when works for them. Output ONLY the email body text, nothing else, no subject line, no "CC:"/"To:"/"Subject:" lines, no signature beyond a first-name sign-off.`,
       { system: buildSystemPrompt(config, "You are writing on behalf of Rehab Revenue."), maxTokens: 300 },
     );
     if (!draft) {
@@ -201,6 +201,8 @@ Days since our last message: ${Math.round(lastMessageAge / 86400000)}
 
 Recent conversation (oldest first):
 ${recentContext || "(no prior messages found beyond the subject line)"}
+
+Every follow-up must end with a smooth, low-pressure nudge toward booking a call, not just a question left hanging, use the real booking link if one is configured, otherwise ask when a quick 15 minutes would work for them.
 
 Follow every rule in the guidelines below exactly. Output ONLY the email body text, nothing else, no subject line, no "CC:"/"To:"/"Subject:" lines, no signature block beyond a first-name sign-off.`,
     { system: buildSystemPrompt(config, `You are writing FROM the mailbox ${state.eaccount}.`), maxTokens: 300 },

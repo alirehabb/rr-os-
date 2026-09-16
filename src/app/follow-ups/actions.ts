@@ -61,7 +61,7 @@ Stage: ${prospect.stage}
 Notes on file: ${prospect.qualification_notes ?? "none"}
 Source: ${prospect.source ?? "unknown"}
 
-It should read like a real person continuing an existing relationship, not a cold intro. Output just the email body, no subject line, no signature beyond a first-name sign-off.`,
+It should read like a real person continuing an existing relationship, not a cold intro. It must end with a smooth, low-pressure nudge toward booking a call, not just a question left hanging, use the real booking link if one is configured, otherwise ask when a quick 15 minutes would work for them. Output just the email body, no subject line, no signature beyond a first-name sign-off.`,
     {
       system: `Tone: ${config?.tone ?? "professional, direct, human, 2-6 sentences"}.\n\nGUIDELINES:\n${config?.guidelines ?? "none set"}\n\nKNOWLEDGE BASE:\n${config?.knowledge_base ?? "none set"}\n\nBOOKING LINK: ${config?.booking_link ?? "none"}\nNever use bracket placeholders. No em dashes. No AI-sounding language.\n\nDo not proactively bring up acquisition/lead-gen unless asked.`,
       maxTokens: 300,
