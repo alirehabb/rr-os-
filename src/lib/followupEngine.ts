@@ -1,5 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/service";
-import { getLatestThreadState, hasHumanReplied, replyToEmail } from "@/lib/instantly";
+import { getLatestThreadState, getFullThread, hasHumanReplied, replyToEmail } from "@/lib/instantly";
 import { askAI } from "@/lib/ai";
 
 const STALE_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
@@ -28,6 +28,11 @@ function toHtml(text: string): string {
     .map((p) => `<p>${p.replace(/\n/g, "<br/>")}</p>`)
     .join("");
 }
+
+// The "CC:"/"To:"/etc. header-line stripping used to live here as a
+// one-off fix after a real send included literal "CC: ali@rehab-revenue.com"
+// text in the body — it's now handled centrally in askAI() itself so every
+// caller gets it, not just this one.
 
 export type FollowUpConfig = { tone: string | null; guidelines: string | null; knowledge_base: string | null; booking_link: string | null };
 
@@ -129,7 +134,7 @@ Contact: ${prospect.contact_name ?? "unknown, use a generic greeting, no placeho
 Notes on file: ${prospect.qualification_notes ?? "none"}
 Source: ${prospect.source ?? "unknown"}
 
-It should read like a real person continuing an existing relationship, not a cold intro. Output just the email body, no subject line, no signature beyond a first-name sign-off.`,
+It should read like a real person continuing an existing relationship, not a cold intro. Output ONLY the email body text, nothing else, no subject line, no "CC:"/"To:"/"Subject:" lines, no signature beyond a first-name sign-off.`,
       { system: buildSystemPrompt(config, "You are writing on behalf of Rehab Revenue."), maxTokens: 300 },
     );
     if (!draft) {
@@ -137,7 +142,6 @@ It should read like a real person continuing an existing relationship, not a col
       await logOutcome(supabase, prospect.id, member.campaign_id, "sarah", "no_draft");
       continue;
     }
-
     await supabase.from("followup_drafts").insert({
       prospect_id: prospect.id,
       channel: prospect.stage === "no_show" ? "no_show" : "external",
@@ -179,13 +183,26 @@ async function handleInstantlyFollowUp(
     return { outcome: "skipped", reason: "followed_up_recently" };
   }
 
+  // Real incident: drafting off the subject line alone produced a generic
+  // qualifying question to a lead who'd already offered a specific meeting
+  // time and asked detailed questions — the model had no way to know that.
+  // Pull the real recent conversation so the follow-up actually engages
+  // with what was said, not just the thread title.
+  const thread = await getFullThread(prospect.contact_email!);
+  const recentContext = thread
+    .slice(-6)
+    .map((m) => `${m.fromLead ? "Them" : "Us"}: ${m.text.slice(0, 500)}`)
+    .join("\n\n");
+
   const draft = await askAI(
-    `This prospect showed real interest earlier but has gone quiet since our last message. Write a short, natural follow-up that continues the conversation, it should NOT read like a new cold outreach or a generic "just following up."
+    `This prospect showed real interest earlier but has gone quiet since our last message. Write a short, natural follow-up that continues the conversation, it should NOT read like a new cold outreach or a generic "just following up." Reference something real from the conversation below if it helps, don't ask something they already answered.
 Their name: ${prospect.contact_name || 'unknown, do not guess it or use a placeholder, skip the name or use "Hi there"'}
-Subject of the thread: ${state.subject}
 Days since our last message: ${Math.round(lastMessageAge / 86400000)}
 
-Follow every rule in the guidelines below exactly. Output just the email body, no subject line, no signature block beyond a first-name sign-off.`,
+Recent conversation (oldest first):
+${recentContext || "(no prior messages found beyond the subject line)"}
+
+Follow every rule in the guidelines below exactly. Output ONLY the email body text, nothing else, no subject line, no "CC:"/"To:"/"Subject:" lines, no signature block beyond a first-name sign-off.`,
     { system: buildSystemPrompt(config, `You are writing FROM the mailbox ${state.eaccount}.`), maxTokens: 300 },
   );
   if (!draft) return { outcome: "no_draft" };

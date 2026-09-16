@@ -35,7 +35,19 @@ export async function askAI(prompt: string, opts: { system?: string; maxTokens?:
     if (!content) return null;
     // Models ignore "no em dashes" often enough that it needs enforcing,
     // not just requesting — this is a hard product writing-style rule.
-    return content.replace(/\s*—\s*/g, ", ").replace(/\s*–\s*/g, "-");
+    const noDashes = content.replace(/\s*—\s*/g, ", ").replace(/\s*–\s*/g, "-");
+    // Real incident: a drafted follow-up that actually got sent to a real
+    // prospect included the literal text "CC: ali@rehab-revenue.com" in the
+    // body — the model copied a mechanical instruction from its own prompt
+    // into the visible output despite being told not to. Prompting alone
+    // wasn't enough, so this strips any header-looking line as a permanent
+    // backstop for every caller, not just the one that broke first.
+    return noDashes
+      .split("\n")
+      .filter((line: string) => !/^\s*(cc|bcc|to|from|subject)\s*:/i.test(line))
+      .join("\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
   } catch {
     return null;
   }
