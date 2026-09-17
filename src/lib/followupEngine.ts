@@ -180,14 +180,22 @@ async function handleInstantlyFollowUp(
     await logOutcome(supabase, prospect.id, prospect.contact_email!, "skipped", { reason: "no_instantly_thread_found" });
     return { outcome: "skipped", reason: "no_instantly_thread_found" };
   }
-  if (state.lastMessageFromLead) {
-    // They spoke last and we haven't answered yet — that's the reactive
-    // reply agent's job, not a follow-up nudge. Leave it alone.
+  const lastMessageAge = Date.now() - new Date(state.lastMessageAt).getTime();
+
+  // Real incident: a lead spoke last and simply never got answered, ever —
+  // the reactive reply agent only looks at replies from the last 30
+  // minutes, so anyone who replied before that window (including the whole
+  // backlog from before this system existed) was never eligible for it and
+  // this engine deferred to it forever. A short buffer (longer than the
+  // reactive agent's own window plus this cron's hourly cadence) still
+  // gives it first crack at a fresh reply; past that, this run owns
+  // catching up rather than leaving a real reply unanswered indefinitely.
+  const REACTIVE_AGENT_BUFFER_MS = 40 * 60 * 1000;
+  const isCatchUp = state.lastMessageFromLead && lastMessageAge >= REACTIVE_AGENT_BUFFER_MS;
+  if (state.lastMessageFromLead && !isCatchUp) {
     await logOutcome(supabase, prospect.id, prospect.contact_email!, "skipped", { reason: "lead_spoke_last" });
     return { outcome: "skipped", reason: "lead_spoke_last" };
   }
-
-  const lastMessageAge = Date.now() - new Date(state.lastMessageAt).getTime();
   if (await hasHumanReplied(state.threadId)) {
     await logOutcome(supabase, prospect.id, prospect.contact_email!, "skipped", { reason: "human_owns_thread" });
     return { outcome: "skipped", reason: "human_owns_thread" };
@@ -233,14 +241,25 @@ ${recentContext}`,
     }
   }
 
-  // Not stale enough yet to warrant a nudge, and nothing in the
-  // conversation needed escalation — just wait.
-  if (lastMessageAge < STALE_AFTER_MS) {
+  // Not stale enough yet to warrant a nudge (only applies to "we spoke
+  // last" nudges — a catch-up reply is already overdue by definition, it
+  // never waits further).
+  if (!isCatchUp && lastMessageAge < STALE_AFTER_MS) {
     return { outcome: "skipped", reason: "not_stale_yet" };
   }
 
   const draft = await askAI(
-    `This prospect showed real interest earlier but has gone quiet since our last message. Write a short, natural follow-up that continues the conversation, it should NOT read like a new cold outreach or a generic "just following up." Reference something real from the conversation below if it helps, don't ask something they already answered. Do not be pushy and do not over-explain, keep it brief.
+    isCatchUp
+      ? `This prospect replied to our outreach and never got an answer. Write a short, natural reply that directly answers what they actually said, it should NOT apologize for the delay or mention timing at all, just respond like a normal, prompt reply would.
+Their name: ${prospect.contact_name || 'unknown, do not guess it or use a placeholder, skip the name or use "Hi there"'}
+
+Recent conversation (oldest first):
+${recentContext || "(no prior messages found beyond the subject line)"}
+
+End with a smooth, low-pressure nudge toward booking a call, not just a question left hanging, use the real booking link if one is configured, otherwise ask when a quick 15 minutes would work for them.
+
+Follow every rule in the guidelines below exactly. Output ONLY the email body text, nothing else, no subject line, no "CC:"/"To:"/"Subject:" lines, no signature block beyond a first-name sign-off.`
+      : `This prospect showed real interest earlier but has gone quiet since our last message. Write a short, natural follow-up that continues the conversation, it should NOT read like a new cold outreach or a generic "just following up." Reference something real from the conversation below if it helps, don't ask something they already answered. Do not be pushy and do not over-explain, keep it brief.
 Their name: ${prospect.contact_name || 'unknown, do not guess it or use a placeholder, skip the name or use "Hi there"'}
 Days since our last message: ${Math.round(lastMessageAge / 86400000)}
 
