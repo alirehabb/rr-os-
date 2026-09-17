@@ -69,7 +69,7 @@ export function Badge({
   className?: string;
 }) {
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${BADGE_TONES[tone]} ${className}`}>
+    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium capitalize ${BADGE_TONES[tone]} ${className}`}>
       {children}
     </span>
   );
@@ -109,7 +109,7 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...rest}
-      className={`w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none transition-shadow placeholder:text-faint focus:ring-2 focus:ring-accent/40 ${className}`}
+      className={`w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none transition-all placeholder:text-faint hover:border-accent/40 focus:border-accent/60 focus:ring-2 focus:ring-accent/40 ${className}`}
     />
   );
 }
@@ -129,7 +129,7 @@ export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...rest}
-      className={`rounded-xl border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none transition-shadow focus:ring-2 focus:ring-accent/40 ${className}`}
+      className={`cursor-pointer rounded-xl border border-border bg-surface px-3 py-2 text-sm capitalize text-foreground outline-none transition-shadow hover:border-accent/40 focus:ring-2 focus:ring-accent/40 ${className}`}
     />
   );
 }

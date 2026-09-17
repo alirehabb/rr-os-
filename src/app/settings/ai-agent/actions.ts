@@ -35,3 +35,16 @@ export async function setAutoReplyEnabled(formData: FormData) {
   await supabase.from("ai_agent_config").update({ auto_reply_enabled: enabled }).eq("id", config.id);
   revalidatePath("/settings/ai-agent");
 }
+
+// Separate kill switch for the proactive follow-up cron/campaigns, distinct
+// from the reactive reply agent above. Lets one run while the other is off.
+export async function setAutoFollowupEnabled(formData: FormData) {
+  const supabase = await createClient();
+  const enabled = formData.get("enabled") === "true";
+
+  const { data: config } = await supabase.from("ai_agent_config").select("id").limit(1).single();
+  if (!config) return;
+
+  await supabase.from("ai_agent_config").update({ auto_followup_enabled: enabled }).eq("id", config.id);
+  revalidatePath("/settings/ai-agent");
+}

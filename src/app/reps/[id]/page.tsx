@@ -6,9 +6,10 @@ import {
   startLiveTrial,
   reviewTrial,
   linkRepProfile,
+  sendCustomEmail,
 } from "../actions";
 import SetCompensationForm from "../SetCompensationForm";
-import { PageHeader, SectionTitle, Card, Badge, Button, Select, Textarea, EmptyState } from "@/components/ui";
+import { PageHeader, SectionTitle, Card, Badge, Button, Select, Textarea, Input, EmptyState } from "@/components/ui";
 
 const RECRUITING_STATUSES = [
   "application",
@@ -85,6 +86,18 @@ export default async function RepDetailPage({ params }: { params: Promise<{ id: 
             </form>
           )}
         </Card>
+
+        <section className="mb-8">
+          <SectionTitle>Email {rep.full_name.split(" ")[0]}</SectionTitle>
+          <form action={sendCustomEmail} className="space-y-2 rounded-2xl border border-border bg-surface p-3 shadow-sm shadow-black/[0.03]">
+            <input type="hidden" name="rep_id" value={rep.id} />
+            <Input name="subject" required placeholder="Subject" />
+            <Textarea name="body" required rows={4} placeholder="Ask for a document, more detail, anything ad hoc. Sent from Sarah at Rehab Revenue." />
+            <Button type="submit" variant="secondary" className="text-xs">
+              Send email
+            </Button>
+          </form>
+        </section>
 
         <section className="mb-8">
           <SectionTitle>Client assignments</SectionTitle>

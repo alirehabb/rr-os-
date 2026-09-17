@@ -1,6 +1,7 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { getRecentReplies, hasHumanReplied, replyToEmail } from "@/lib/instantly";
 import { askAI } from "@/lib/ai";
+import { escalateToHuman } from "@/lib/followupEngine";
 
 // Instantly's rate limit forces real pacing between calls (~3.2s each) —
 // cheap insurance here too, even though this pipeline usually processes
@@ -13,7 +14,7 @@ const ALI_EMAIL = "ali@rehab-revenue.com";
 // email reply" — a call is booked, in progress, or dead. Rule 9 (Follow-up)
 // says stop sales follow-up once booked or rejected; the agent has no
 // business drafting anything for these.
-const SKIP_STAGES = new Set(["call_booked", "no_show", "call_completed", "follow_up", "not_fit", "agreement_sent", "signed"]);
+const SKIP_STAGES = new Set(["call_booked", "no_show", "call_completed", "follow_up", "not_fit", "lost", "agreement_sent", "won", "signed"]);
 
 // Same shared-secret guard as /api/cron/chase. Vercel's schedule below is
 // the fastest cron interval available on the current plan — upgrade if the
@@ -71,7 +72,7 @@ export async function GET(req: Request) {
     // booked, progressed, or been marked not a fit.
     const { data: prospect } = await supabase
       .from("prospects")
-      .select("stage, contact_name")
+      .select("id, company_name, stage, contact_name, needs_human_review")
       .eq("contact_email", reply.leadEmail)
       .maybeSingle();
     if (prospect && SKIP_STAGES.has(prospect.stage)) {
@@ -79,15 +80,23 @@ export async function GET(req: Request) {
       results.push({ replyId: reply.id, outcome: `skipped: prospect_stage_${prospect.stage}` });
       continue;
     }
+    // Founder's own explicit gate: once a thread is flagged for human
+    // review (vague answer, or they proposed times instead of booking),
+    // the agent stops touching it entirely until a human clears the flag.
+    if (prospect?.needs_human_review) {
+      await logOutcome(supabase, reply, "skipped", "needs_human_review");
+      results.push({ replyId: reply.id, outcome: "skipped: needs_human_review" });
+      continue;
+    }
 
     // Rule 1, the Absolute Reply Gate — classify before ever drafting.
-    // Anything short of a clear "interested" is a no-send, flagged for a
-    // human to look at rather than guessed at.
+    // Anything short of a clear "interested" is a no-send, either silently
+    // skipped (not interested) or escalated to a human (needs_human).
     const classification = await askAI(
-      `Classify this email reply from a cold outreach recipient. Reply with exactly one word: INTERESTED, NOT_INTERESTED, or UNCLEAR.
-INTERESTED = shows genuine commercial interest, asks about pricing/how it works, wants to talk, or is a legitimate follow-up question from someone already engaged.
+      `Classify this email reply from a cold outreach recipient. Reply with exactly one word:
+INTERESTED = shows genuine commercial interest, asks about pricing/how it works, wants to talk, or is a legitimate follow-up question from someone already engaged, AND you can answer confidently without a human.
 NOT_INTERESTED = rejection, unsubscribe, hostility, spam complaint, legal threat, vendor pitch, out-of-office/auto-reply, or irrelevant.
-UNCLEAR = anything ambiguous that doesn't clearly fit either category.
+NEEDS_HUMAN = they proposed specific meeting times instead of using a booking link, or the reply is ambiguous/vague in a way a human should personally read and answer.
 
 Email: "${reply.preview}"`,
       // A reasoning model spends part of its token budget on invisible
@@ -96,11 +105,17 @@ Email: "${reply.preview}"`,
       // ambiguous reply (finish_reason: "length", zero visible content).
       // An empty classification fails safe (treated as not-interested, so
       // it's skipped rather than sent) but that's truncation masquerading
-      // as a business decision, not a real UNCLEAR verdict — 80 gives the
-      // model enough room to actually finish reasoning before answering.
+      // as a business decision, not a real verdict — 80 gives the model
+      // enough room to actually finish reasoning before answering.
       { maxTokens: 80 },
     );
     const verdict = (classification ?? "").trim().toUpperCase();
+    if (verdict.startsWith("NEEDS_HUMAN") && prospect) {
+      await escalateToHuman(supabase, { id: prospect.id, contact_email: reply.leadEmail, contact_name: prospect.contact_name, company_name: prospect.company_name }, "Proposed specific times or gave a vague answer", reply.preview);
+      await logOutcome(supabase, reply, "skipped", "escalated_to_human");
+      results.push({ replyId: reply.id, outcome: "skipped: escalated_to_human" });
+      continue;
+    }
     if (!verdict.startsWith("INTERESTED")) {
       await logOutcome(supabase, reply, "skipped", `classified_${verdict || "no_response"}`);
       results.push({ replyId: reply.id, outcome: `skipped: classified_${verdict || "no_response"}` });
@@ -120,13 +135,13 @@ Email: "${reply.preview}"`,
     const isFirstResponse = !priorSent;
 
     const draft = await askAI(
-      `A prospect replied to our outreach email showing real interest. Write a reply that continues this exact conversation.
+      `A prospect replied to our outreach email showing real interest. Write a reply that continues this exact conversation and moves them toward booking a call, without being pushy.
 Their name: ${prospect?.contact_name || "unknown, do not guess it or use a placeholder, skip the name or use \"Hi there\""}
 Their message: "${reply.preview}"
 
-Follow every rule in the guidelines below exactly. Output just the email body, no subject line, no signature block beyond a first-name sign-off.`,
+Keep it short, two to four sentences. Answer what they actually asked, don't dump every detail of the offer into one email. Follow every rule in the guidelines below exactly. Output just the email body, no subject line, no signature block beyond a first-name sign-off.`,
       {
-        system: `You are writing FROM the mailbox ${reply.eaccount} — the lead is replying to that person directly, not to "Rehab Revenue" as a company. Tone: ${config.tone ?? "professional, direct, human, 2-6 sentences"}.
+        system: `You are writing FROM the mailbox ${reply.eaccount} — the lead is replying to that person directly, not to "Rehab Revenue" as a company. Tone: ${config.tone ?? "professional, direct, human, short, 2-4 sentences, never pushy"}.
 
 GUIDELINES (follow exactly):
 ${config.guidelines ?? "none set yet"}
@@ -142,7 +157,7 @@ Never use bracket placeholders of any kind (e.g. [Prospect Name], [Company], [IN
 No em dashes. No AI-sounding language.
 
 FINAL OVERRIDE, applies even where the knowledge base above walks through multiple paths: answer only what THIS prospect actually asked. Do not proactively bring up acquisition, lead generation, "full-stack," or any option beyond core performance-based closing unless they explicitly ask about it or state they lack qualified opportunities. When in doubt, say less.`,
-        maxTokens: 400,
+        maxTokens: 220,
       },
     );
 

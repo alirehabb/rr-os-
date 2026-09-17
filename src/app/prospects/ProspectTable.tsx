@@ -26,8 +26,12 @@ const STAGE_LABEL: Record<string, string> = {
   no_show: "No Show",
   call_completed: "Call Completed",
   follow_up: "Follow-Up",
+  pending: "Pending",
+  proposal_sent: "Proposal Sent",
   not_fit: "Not Fit",
+  lost: "Lost",
   agreement_sent: "Agreement Sent",
+  won: "Won",
   signed: "Signed",
 };
 
@@ -38,8 +42,12 @@ const STAGE_TONE: Record<string, "neutral" | "accent" | "success" | "warning" | 
   no_show: "danger",
   call_completed: "warning",
   follow_up: "warning",
+  pending: "warning",
+  proposal_sent: "accent",
   not_fit: "danger",
+  lost: "danger",
   agreement_sent: "success",
+  won: "success",
   signed: "success",
 };
 
@@ -47,14 +55,18 @@ const STAGE_TONE: Record<string, "neutral" | "accent" | "success" | "warning" | 
 // bottom the way the user actually scans it, not alphabetically.
 export const STAGE_RANK: Record<string, number> = {
   signed: 0,
-  agreement_sent: 1,
-  call_completed: 2,
-  follow_up: 3,
-  call_booked: 4,
-  interested: 5,
-  lead: 6,
-  no_show: 7,
-  not_fit: 8,
+  won: 1,
+  agreement_sent: 2,
+  proposal_sent: 3,
+  call_completed: 4,
+  follow_up: 5,
+  pending: 6,
+  call_booked: 7,
+  interested: 8,
+  lead: 9,
+  no_show: 10,
+  not_fit: 11,
+  lost: 12,
 };
 
 type SortKey = "company" | "stage" | "next_action_date" | "updated_at";
@@ -208,7 +220,7 @@ export default function ProspectTable({ prospects }: { prospects: Prospect[] }) 
                       <Badge tone={STAGE_TONE[p.stage] ?? "neutral"}>{STAGE_LABEL[p.stage] ?? p.stage}</Badge>
                       {locked && <p className="mt-1 text-[11px] text-success">→ Client 360</p>}
                     </div>
-                    <div className="truncate py-2.5 text-xs text-faint">{p.source ?? "—"}</div>
+                    <div className="truncate py-2.5 text-xs capitalize text-faint">{p.source ?? "—"}</div>
                     <div className="min-w-0 py-2.5">
                       {p.next_action ? (
                         <>

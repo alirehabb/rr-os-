@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { Database } from "@/lib/supabase/database.types";
-import { sendRecruitingStatusEmail } from "@/lib/repEmails";
+import { sendRecruitingStatusEmail, sendCustomRepEmail } from "@/lib/repEmails";
 
 type RecruitingStatus = Database["public"]["Enums"]["recruiting_status"];
 
@@ -132,5 +132,18 @@ export async function reviewTrial(formData: FormData) {
     .update({ recruiting_status: outcome === "active" ? "confirmed_active" : outcome === "bench" ? "bench" : "removed" })
     .eq("id", repId);
 
+  revalidatePath(`/reps/${repId}`);
+}
+
+// Founder asking a rep for a document, more detail, or anything ad hoc,
+// separate from the fixed recruiting-status templates above.
+export async function sendCustomEmail(formData: FormData) {
+  const repId = String(formData.get("rep_id"));
+  const subject = String(formData.get("subject") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
+  if (!subject || !body) return;
+
+  const supabase = await createClient();
+  await sendCustomRepEmail(supabase, { repId, subject, body });
   revalidatePath(`/reps/${repId}`);
 }

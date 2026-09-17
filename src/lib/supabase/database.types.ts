@@ -121,6 +121,7 @@ export type Database = {
       }
       ai_agent_config: {
         Row: {
+          auto_followup_enabled: boolean
           auto_reply_enabled: boolean
           booking_link: string | null
           guidelines: string | null
@@ -131,6 +132,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          auto_followup_enabled?: boolean
           auto_reply_enabled?: boolean
           booking_link?: string | null
           guidelines?: string | null
@@ -141,6 +143,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          auto_followup_enabled?: boolean
           auto_reply_enabled?: boolean
           booking_link?: string | null
           guidelines?: string | null
@@ -1685,6 +1688,10 @@ export type Database = {
           id: string
           is_demo: boolean
           last_ai_followup_at: string | null
+          human_review_reason: string | null
+          last_message_at: string | null
+          last_message_preview: string | null
+          needs_human_review: boolean
           next_action: string | null
           next_action_date: string | null
           owner_id: string | null
@@ -1704,6 +1711,10 @@ export type Database = {
           id?: string
           is_demo?: boolean
           last_ai_followup_at?: string | null
+          human_review_reason?: string | null
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          needs_human_review?: boolean
           next_action?: string | null
           next_action_date?: string | null
           owner_id?: string | null
@@ -1723,6 +1734,10 @@ export type Database = {
           id?: string
           is_demo?: boolean
           last_ai_followup_at?: string | null
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          needs_human_review?: boolean
+          human_review_reason?: string | null
           next_action?: string | null
           next_action_date?: string | null
           owner_id?: string | null
@@ -2225,10 +2240,14 @@ export type Database = {
         | "call_booked"
         | "call_completed"
         | "follow_up"
+        | "pending"
+        | "proposal_sent"
         | "agreement_sent"
+        | "won"
         | "signed"
         | "no_show"
         | "not_fit"
+        | "lost"
       recruiting_status:
         | "application"
         | "screening"
@@ -2419,9 +2438,13 @@ export const Constants = {
         "call_booked",
         "call_completed",
         "follow_up",
+        "pending",
+        "proposal_sent",
         "agreement_sent",
+        "won",
         "signed",
         "no_show",
+        "lost",
         "not_fit",
       ],
       recruiting_status: [

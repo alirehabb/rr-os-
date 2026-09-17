@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader, Card, Button, Textarea, Field, Badge } from "@/components/ui";
-import { saveAIAgentConfig, setAutoReplyEnabled } from "./actions";
+import { saveAIAgentConfig, setAutoReplyEnabled, setAutoFollowupEnabled } from "./actions";
 
 export default async function AIAgentSettingsPage() {
   const supabase = await createClient();
@@ -27,6 +27,23 @@ export default async function AIAgentSettingsPage() {
             <input type="hidden" name="enabled" value={String(!config?.auto_reply_enabled)} />
             <Button variant={config?.auto_reply_enabled ? "danger" : "primary"} className="text-xs">
               {config?.auto_reply_enabled ? "Turn off" : "Turn on"}
+            </Button>
+          </form>
+        </Card>
+
+        <Card className="mb-6 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-foreground">Automated follow-up</p>
+            <p className="mt-0.5 text-xs text-muted">
+              {config?.auto_followup_enabled
+                ? "ON: campaigns send/draft follow-ups on their own hourly schedule."
+                : "OFF: campaigns exist and can be run manually, but nothing sends automatically."}
+            </p>
+          </div>
+          <form action={setAutoFollowupEnabled}>
+            <input type="hidden" name="enabled" value={String(!config?.auto_followup_enabled)} />
+            <Button variant={config?.auto_followup_enabled ? "danger" : "primary"} className="text-xs">
+              {config?.auto_followup_enabled ? "Turn off" : "Turn on"}
             </Button>
           </form>
         </Card>

@@ -200,7 +200,7 @@ export default async function MyWorkspacePage() {
               <li key={a.id}>
                 <Card>
                   <p className="text-foreground">
-                    {a.role} · {a.status}
+                    <span className="capitalize">{a.role}</span> · <span className="capitalize">{a.status}</span>
                   </p>
                   {a.booking_link && (
                     <a href={a.booking_link} className="text-xs text-faint underline">

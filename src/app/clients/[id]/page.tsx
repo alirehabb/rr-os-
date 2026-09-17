@@ -195,7 +195,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                           <div>
                             <p className="text-sm text-foreground">{h.label}</p>
                             <p className="text-xs text-faint">
-                              {h.category.replace(/_/g, " ")} · owner: {h.owner}
+                              <span className="capitalize">{h.category.replace(/_/g, " ")}</span> · Owner: {h.owner}
                             </p>
                           </div>
                           <form action={updateHandoverItemStatus} className="flex items-center gap-2">
@@ -400,7 +400,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                         <li key={stage}>
                           <Card className="flex items-center justify-between gap-3 text-sm">
                             <div className="w-32 shrink-0">
-                              <p className="font-medium text-foreground">{stage.replace(/_/g, " ")}</p>
+                              <p className="font-medium capitalize text-foreground">{stage.replace(/_/g, " ")}</p>
                               <p className="text-xs text-faint">{STAGE_HINT[stage]}</p>
                             </div>
                             <form action={setClientStageLabel} className="flex flex-1 gap-2">

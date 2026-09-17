@@ -27,8 +27,12 @@ const STAGES: { key: string; label: string; dot: string }[] = [
   { key: "no_show", label: "No Show", dot: "bg-danger" },
   { key: "call_completed", label: "Call Completed", dot: "bg-warning" },
   { key: "follow_up", label: "Follow-Up", dot: "bg-amber-500" },
+  { key: "pending", label: "Pending", dot: "bg-amber-400" },
+  { key: "proposal_sent", label: "Proposal Sent", dot: "bg-sky-400" },
   { key: "not_fit", label: "Not Fit", dot: "bg-danger" },
+  { key: "lost", label: "Lost", dot: "bg-rose-700" },
   { key: "agreement_sent", label: "Agreement Sent", dot: "bg-emerald-500" },
+  { key: "won", label: "Won", dot: "bg-success" },
   { key: "signed", label: "Signed", dot: "bg-success" },
 ];
 
@@ -145,7 +149,7 @@ function Column({
                     <p className="truncate text-xs text-muted">{displayCompanyName(p.company_name)}</p>
                     <div className="mt-1.5 flex items-center gap-1.5">
                       {p.is_demo && <Badge tone="accent">Demo</Badge>}
-                      {p.source && <span className="text-[11px] text-faint">{p.source}</span>}
+                      {p.source && <span className="text-[11px] capitalize text-faint">{p.source}</span>}
                     </div>
                     {p.next_action && (
                       <p className={`mt-1.5 truncate text-[11px] ${stale ? "text-danger" : "text-faint"}`}>

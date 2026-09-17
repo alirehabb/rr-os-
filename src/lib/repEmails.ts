@@ -77,6 +77,50 @@ const TEMPLATES: Partial<Record<RecruitingStatus, (name: string) => { subject: s
   }),
 };
 
+// Free-text version of the same sender, for a founder asking a rep for
+// something specific (a document, a recording, more detail) rather than
+// notifying them of a status change. Same from-address, same audit trail.
+export async function sendCustomRepEmail(
+  supabase: SupabaseClient<Database>,
+  { repId, subject, body }: { repId: string; subject: string; body: string },
+) {
+  const { data: rep } = await supabase.from("reps").select("full_name, email").eq("id", repId).single();
+  if (!rep?.email) return { ok: false as const };
+
+  const html = wrap(
+    rep.full_name,
+    body
+      .split("\n\n")
+      .map((p) => `<p>${p.replace(/\n/g, "<br/>")}</p>`)
+      .join(""),
+  );
+
+  let delivery_status: "sent" | "failed" = "sent";
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ from: FROM, to: [rep.email], subject, html }),
+    });
+    if (!res.ok) delivery_status = "failed";
+  } catch {
+    delivery_status = "failed";
+  }
+
+  await supabase.from("audit_log").insert({
+    actor_type: "automation",
+    action: "send_custom_rep_email",
+    target_type: "rep",
+    target_id: repId,
+    after: { to: rep.email, subject, body, delivery_status },
+  });
+
+  return { ok: delivery_status === "sent" };
+}
+
 // Every recruiting-status change sends the matching applicant/rep email.
 // Interview requests carry the real Calendly link, rejection offers the
 // community waitlist. Never blocks the status update: a Resend failure is

@@ -1,31 +1,36 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { getLatestThreadState, getFullThread, hasHumanReplied, replyToEmail } from "@/lib/instantly";
 import { askAI } from "@/lib/ai";
+import { sendEmail } from "@/lib/email";
 
-// Real incident: a lead who had explicitly replied "not for me" kept
-// getting followed up anyway, because campaign membership alone was
-// treated as permanent consent to keep nudging — there was no check
-// against the CRM stage at all, and no check of what the conversation
-// actually said before drafting the next nudge. SKIP_STAGES is the same
-// cheap, no-API-call gate the old CRM-wide sweep had before the campaign
-// rewrite dropped it.
-const SKIP_STAGES = new Set(["call_booked", "no_show", "call_completed", "agreement_sent", "signed", "not_fit"]);
+// Only "interested" is eligible for the daily nudge — anything past it
+// (booked, completed, agreement, won/signed) or dead (no_show, not_fit,
+// lost) is either already progressing on its own or a stage the agent has
+// no business touching. Checking `stage` here IS the "did they book"
+// check: the Calendly webhook (api/webhooks/calendly) flips a prospect to
+// call_booked the moment they book, in real time, so there's no separate
+// live Calendly poll needed before every follow-up.
+const ELIGIBLE_STAGE = "interested";
 
 const STALE_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
-const MIN_GAP_BETWEEN_FOLLOWUPS_MS = 4 * 24 * 60 * 60 * 1000;
-export const DEDUPE_WINDOW_MS = 20 * 60 * 60 * 1000;
+// "Once every day" per the founder's spec, with margin so a cron running a
+// few minutes early/late two days running never double-sends.
+export const DEDUPE_WINDOW_MS = 22 * 60 * 60 * 1000;
 // Best-effort local-morning send window. A prospect without a stored
-// timezone (the common case for a cold lead) skips this gate entirely
-// rather than never getting followed up — "if available" per the ask.
+// timezone (the common case for a cold lead) falls back to a fixed 9am
+// Eastern slot per the founder's call, rather than either skipping the
+// gate entirely or never getting followed up.
 export const LOCAL_HOUR_WINDOW = [9, 12] as const;
+const FALLBACK_TIMEZONE = "America/New_York";
+const FALLBACK_HOUR_WINDOW = [9, 10] as const;
 
 type SupabaseAny = ReturnType<typeof createServiceClient>;
 
 export function isWithinLocalMorning(timezone: string | null): boolean {
-  if (!timezone) return true;
+  const [start, end] = timezone ? LOCAL_HOUR_WINDOW : FALLBACK_HOUR_WINDOW;
   try {
-    const hour = Number(new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", hour12: false }).format(new Date()));
-    return hour >= LOCAL_HOUR_WINDOW[0] && hour < LOCAL_HOUR_WINDOW[1];
+    const hour = Number(new Intl.DateTimeFormat("en-US", { timeZone: timezone ?? FALLBACK_TIMEZONE, hour: "numeric", hour12: false }).format(new Date()));
+    return hour >= start && hour < end;
   } catch {
     return true;
   }
@@ -38,61 +43,47 @@ function toHtml(text: string): string {
     .join("");
 }
 
-// The "CC:"/"To:"/etc. header-line stripping used to live here as a
-// one-off fix after a real send included literal "CC: ali@rehab-revenue.com"
-// text in the body — it's now handled centrally in askAI() itself so every
-// caller gets it, not just this one.
-
 export type FollowUpConfig = { tone: string | null; guidelines: string | null; knowledge_base: string | null; booking_link: string | null };
 
 function buildSystemPrompt(config: FollowUpConfig, fromContext: string): string {
-  return `${fromContext} Tone: ${config.tone ?? "professional, direct, human, 2-6 sentences"}.
+  return `${fromContext} Tone: ${config.tone ?? "professional, direct, human, 2-4 sentences"}.
 
 GUIDELINES (follow exactly, especially the Follow-up section):
 ${config.guidelines ?? "none set yet"}
 
-KNOWLEDGE BASE:
+KNOWLEDGE BASE, use only what's needed to answer what was actually asked, never dump all of it into one email:
 ${config.knowledge_base ?? "none set yet"}
 
 BOOKING LINK: ${config.booking_link ?? "none configured yet"}
 ${config.booking_link ? `If it makes sense to nudge toward a call, use this exact link: ${config.booking_link}` : "No real booking link exists yet. NEVER invent one."}
 
-Never use bracket placeholders of any kind. Never manufacture fake urgency. No em dashes. No AI-sounding language.
+Keep it short. Two to four sentences. One idea, one soft call to action, never a pushy or salesy tone, never a wall of information. Never use bracket placeholders of any kind. Never manufacture fake urgency. No em dashes. No AI-sounding language.
 
 FINAL OVERRIDE: do not proactively bring up acquisition, lead generation, or "full-stack" unless they previously asked about it. When in doubt, say less.`;
 }
 
-export type FollowUpMember = {
+export type FollowUpProspect = {
   id: string;
-  campaign_id: string;
-  campaigns: { channel: string; name: string } | null;
-  prospects: {
-    id: string;
-    contact_email: string | null;
-    contact_name: string | null;
-    company_name: string;
-    stage: string;
-    source: string | null;
-    timezone: string | null;
-    qualification_notes: string | null;
-    last_ai_followup_at: string | null;
-  } | null;
+  contact_email: string | null;
+  contact_name: string | null;
+  company_name: string;
+  stage: string;
+  source: string | null;
+  timezone: string | null;
+  qualification_notes: string | null;
+  last_ai_followup_at: string | null;
+  needs_human_review: boolean;
 };
 
 export type FollowUpOutcome = { prospectId: string; lead: string; outcome: string };
 
-// Every outcome (sent, drafted, or any skip reason) is logged here, keyed
-// by prospect_id so a campaign detail view can reconstruct "what actually
-// happened" regardless of channel — the instantly-channel skip reasons
-// (stale, human-owned, etc) used to only exist in the ephemeral HTTP
-// response, which made "see what's happening" impossible after the fact.
-async function logOutcome(supabase: SupabaseAny, prospectId: string, campaignId: string, channel: string, status: string, extra?: Record<string, unknown>) {
+async function logOutcome(supabase: SupabaseAny, prospectId: string, lead: string, status: string, extra?: Record<string, unknown>) {
   await supabase.from("audit_log").insert({
     actor_type: "automation",
     action: "ai_agent_follow_up",
     target_type: "prospect",
     target_id: prospectId,
-    after: { campaign_id: campaignId, channel, status, ...extra },
+    after: { lead, status, ...extra },
   });
 }
 
@@ -100,186 +91,171 @@ async function markFollowedUp(supabase: SupabaseAny, prospectId: string) {
   await supabase.from("prospects").update({ last_ai_followup_at: new Date().toISOString() }).eq("id", prospectId);
 }
 
-// Shared by the hourly cron (all active members) and the manual "Run now"
-// button on a campaign's detail page (just that campaign's members) — same
-// gates, same logging, so there's exactly one code path to trust.
+// A reply suggests specific times instead of using the booking link, or is
+// otherwise ambiguous ("maybe", "let me check with my partner", a question
+// the agent has no real answer for) — the founder wants a human in the loop
+// for exactly this, not a guess. The agent stops touching the thread and an
+// email goes out immediately so nothing sits unanswered.
+export async function escalateToHuman(supabase: SupabaseAny, prospect: { id: string; contact_email: string | null; contact_name: string | null; company_name: string }, reason: string, excerpt: string) {
+  await supabase.from("prospects").update({ needs_human_review: true, human_review_reason: reason }).eq("id", prospect.id);
+  await sendEmail({
+    to: ["ali@rehab-revenue.com", "sundeep@ssanzgrowthai.inc"],
+    subject: `Needs a human reply: ${prospect.contact_name || prospect.company_name}`,
+    html: `<p><strong>${prospect.contact_name || prospect.company_name}</strong> (${prospect.contact_email ?? "no email on file"}) needs a real reply.</p>
+<p>Reason: ${reason}</p>
+<p>Their message:</p>
+<blockquote style="border-left:3px solid #ccc;margin:0;padding-left:12px;color:#444">${excerpt.replace(/\n/g, "<br/>")}</blockquote>
+<p>The agent will not touch this thread again until the stage or review flag is cleared in the CRM.</p>`,
+  });
+  await logOutcome(supabase, prospect.id, prospect.contact_email ?? prospect.company_name, "escalated", { reason, excerpt });
+}
+
 // Instantly's real rate limit (20 req/min, confirmed live) plus the ~3.2s
 // pacing in lib/instantly.ts means a serverless function has a hard ceiling
-// on how many Instantly-touching members it can get through before Vercel's
-// own execution timeout hits (Hobby plan: 60s max). At up to 2 Instantly
-// calls per candidate, 8 comfortably fits with margin; the ones skipped for
-// budget this run get picked up on the next hourly tick, sorted so the
-// longest-waiting members go first instead of the same few every time.
-const MAX_INSTANTLY_MEMBERS_PER_RUN = 8;
+// on how many Instantly-touching prospects it can get through before
+// Vercel's own execution timeout hits (Hobby plan: 60s max). At up to 2
+// Instantly calls per candidate, 8 comfortably fits with margin; anyone
+// skipped for budget this run gets picked up on the next hourly tick,
+// sorted so the longest-waiting prospects go first instead of the same
+// few every time.
+const MAX_PER_RUN = 8;
 
-export async function runFollowUpForMembers(supabase: SupabaseAny, config: FollowUpConfig, members: FollowUpMember[]): Promise<{ sent: number; drafted: number; results: FollowUpOutcome[] }> {
-  const results: FollowUpOutcome[] = [];
-  let sent = 0;
-  let drafted = 0;
-  let instantlyProcessed = 0;
+// Runs once an hour over every "interested" Instantly-sourced prospect —
+// no opt-in campaign, no drag-and-drop, per the founder's spec: speed to
+// lead and pipeline conversion should not depend on someone remembering to
+// add a lead to a list. A prospect who has booked, gone dead, or been
+// flagged for human review is filtered out by the query itself.
+export async function runDailyFollowUps(supabase: SupabaseAny, config: FollowUpConfig): Promise<{ checked: number; sent: number; results: FollowUpOutcome[] }> {
+  const { data: candidates } = await supabase
+    .from("prospects")
+    .select("id, contact_email, contact_name, company_name, stage, source, timezone, qualification_notes, last_ai_followup_at, needs_human_review")
+    .eq("stage", ELIGIBLE_STAGE)
+    .eq("source", "instantly")
+    .eq("needs_human_review", false)
+    .not("contact_email", "is", null);
 
-  const ordered = [...members].sort((a, b) => {
-    const at = a.prospects?.last_ai_followup_at ? new Date(a.prospects.last_ai_followup_at).getTime() : 0;
-    const bt = b.prospects?.last_ai_followup_at ? new Date(b.prospects.last_ai_followup_at).getTime() : 0;
+  const ordered = ((candidates ?? []) as FollowUpProspect[]).sort((a, b) => {
+    const at = a.last_ai_followup_at ? new Date(a.last_ai_followup_at).getTime() : 0;
+    const bt = b.last_ai_followup_at ? new Date(b.last_ai_followup_at).getTime() : 0;
     return at - bt; // never-run (0) first, then longest-waiting
   });
 
-  for (const member of ordered) {
-    const prospect = member.prospects;
-    const campaign = member.campaigns;
-    if (!prospect || !campaign || !prospect.contact_email) continue;
+  const results: FollowUpOutcome[] = [];
+  let sent = 0;
+  let processed = 0;
 
-    if (SKIP_STAGES.has(prospect.stage)) {
-      results.push({ prospectId: prospect.id, lead: prospect.contact_email, outcome: `skipped: stage_${prospect.stage}` });
-      await logOutcome(supabase, prospect.id, member.campaign_id, campaign.channel, "skipped", { reason: `stage_${prospect.stage}` });
-      continue;
-    }
+  for (const prospect of ordered) {
     if (prospect.last_ai_followup_at && Date.now() - new Date(prospect.last_ai_followup_at).getTime() < DEDUPE_WINDOW_MS) {
-      results.push({ prospectId: prospect.id, lead: prospect.contact_email, outcome: "skipped: already_followed_up_today" });
-      await logOutcome(supabase, prospect.id, member.campaign_id, campaign.channel, "skipped", { reason: "already_followed_up_today" });
+      results.push({ prospectId: prospect.id, lead: prospect.contact_email!, outcome: "skipped: already_followed_up_today" });
       continue;
     }
     if (!isWithinLocalMorning(prospect.timezone)) {
-      results.push({ prospectId: prospect.id, lead: prospect.contact_email, outcome: "skipped: outside_local_morning_window" });
-      await logOutcome(supabase, prospect.id, member.campaign_id, campaign.channel, "skipped", { reason: "outside_local_morning_window" });
+      results.push({ prospectId: prospect.id, lead: prospect.contact_email!, outcome: "skipped: outside_local_morning_window" });
       continue;
     }
-
-    if (campaign.channel === "instantly") {
-      if (instantlyProcessed >= MAX_INSTANTLY_MEMBERS_PER_RUN) {
-        results.push({ prospectId: prospect.id, lead: prospect.contact_email, outcome: "skipped: run_budget_reached_try_next_hour" });
-        continue;
-      }
-      instantlyProcessed++;
-      const { outcome, reason, draft } = await handleInstantlyFollowUp(supabase, prospect, config);
-      results.push({ prospectId: prospect.id, lead: prospect.contact_email, outcome: reason ? `${outcome}: ${reason}` : outcome });
-      await logOutcome(supabase, prospect.id, member.campaign_id, "instantly", outcome, { reason, draft });
-      if (outcome === "sent") {
-        sent++;
-        await markFollowedUp(supabase, prospect.id);
-      }
+    if (processed >= MAX_PER_RUN) {
+      results.push({ prospectId: prospect.id, lead: prospect.contact_email!, outcome: "skipped: run_budget_reached_try_next_hour" });
       continue;
     }
+    processed++;
 
-    // 'sarah' channel: draft-only (a human reviews before anything sends),
-    // but still worth not drafting at all against a lead who's on record
-    // as having declined — same check as the instantly path, just against
-    // qualification_notes since there's no thread to read here.
-    if (prospect.qualification_notes) {
-      const verdict = await askAI(
-        `Read these CRM notes on a sales prospect. Do they indicate the prospect has clearly rejected, declined, or asked to stop being contacted? Reply with exactly one word: REJECTED or OPEN.
-
-Notes: ${prospect.qualification_notes}`,
-        { maxTokens: 40 },
-      );
-      if ((verdict ?? "").trim().toUpperCase().startsWith("REJECTED")) {
-        await supabase.from("prospects").update({ stage: "not_fit" }).eq("id", prospect.id);
-        results.push({ prospectId: prospect.id, lead: prospect.contact_email, outcome: "skipped: prospect_rejected" });
-        await logOutcome(supabase, prospect.id, member.campaign_id, "sarah", "skipped", { reason: "prospect_rejected" });
-        continue;
-      }
+    const { outcome, reason } = await handleInstantlyFollowUp(supabase, prospect, config);
+    results.push({ prospectId: prospect.id, lead: prospect.contact_email!, outcome: reason ? `${outcome}: ${reason}` : outcome });
+    if (outcome === "sent") {
+      sent++;
+      await markFollowedUp(supabase, prospect.id);
     }
-
-    const draft = await askAI(
-      `Write a short, natural follow-up email to a prospect in an active outreach campaign.
-Company: ${prospect.company_name}
-Contact: ${prospect.contact_name ?? "unknown, use a generic greeting, no placeholders"}
-Notes on file: ${prospect.qualification_notes ?? "none"}
-Source: ${prospect.source ?? "unknown"}
-
-It should read like a real person continuing an existing relationship, not a cold intro. Every follow-up must end with a smooth, low-pressure nudge toward booking a call, not just a question left hanging, use the real booking link if one is configured, otherwise say you'd love to grab 15 minutes and ask when works for them. Output ONLY the email body text, nothing else, no subject line, no "CC:"/"To:"/"Subject:" lines, no signature beyond a first-name sign-off.`,
-      { system: buildSystemPrompt(config, "You are writing on behalf of Rehab Revenue."), maxTokens: 300 },
-    );
-    if (!draft) {
-      results.push({ prospectId: prospect.id, lead: prospect.contact_email, outcome: "no_draft" });
-      await logOutcome(supabase, prospect.id, member.campaign_id, "sarah", "no_draft");
-      continue;
-    }
-    await supabase.from("followup_drafts").insert({
-      prospect_id: prospect.id,
-      channel: prospect.stage === "no_show" ? "no_show" : "external",
-      subject: `Re: ${prospect.company_name}`,
-      body: draft,
-      is_demo: false,
-    });
-    await markFollowedUp(supabase, prospect.id);
-    drafted++;
-    results.push({ prospectId: prospect.id, lead: prospect.contact_email, outcome: "drafted_for_review" });
-    await logOutcome(supabase, prospect.id, member.campaign_id, "sarah", "drafted_for_review", { draft });
   }
 
-  return { sent, drafted, results };
+  return { checked: ordered.length, sent, results };
 }
 
 async function handleInstantlyFollowUp(
   supabase: SupabaseAny,
-  prospect: { id: string; contact_email: string | null; contact_name: string | null },
+  prospect: FollowUpProspect,
   config: FollowUpConfig,
 ): Promise<{ outcome: string; reason?: string; draft?: string | null }> {
   const state = await getLatestThreadState(prospect.contact_email!);
-  if (!state || !state.threadId) return { outcome: "skipped", reason: "no_instantly_thread_found" };
-  if (state.lastMessageFromLead) return { outcome: "skipped", reason: "lead_spoke_last" };
+  if (!state || !state.threadId) {
+    await logOutcome(supabase, prospect.id, prospect.contact_email!, "skipped", { reason: "no_instantly_thread_found" });
+    return { outcome: "skipped", reason: "no_instantly_thread_found" };
+  }
+  if (state.lastMessageFromLead) {
+    // They spoke last and we haven't answered yet — that's the reactive
+    // reply agent's job, not a follow-up nudge. Leave it alone.
+    await logOutcome(supabase, prospect.id, prospect.contact_email!, "skipped", { reason: "lead_spoke_last" });
+    return { outcome: "skipped", reason: "lead_spoke_last" };
+  }
 
   const lastMessageAge = Date.now() - new Date(state.lastMessageAt).getTime();
-  if (lastMessageAge < STALE_AFTER_MS) return { outcome: "skipped", reason: "not_stale_yet" };
-  if (await hasHumanReplied(state.threadId)) return { outcome: "skipped", reason: "human_owns_thread" };
-
-  const { data: recentFollowUp } = await supabase
-    .from("audit_log")
-    .select("id, created_at")
-    .eq("action", "ai_agent_follow_up")
-    .contains("after", { thread_id: state.threadId, status: "sent" })
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (recentFollowUp && Date.now() - new Date(recentFollowUp.created_at).getTime() < MIN_GAP_BETWEEN_FOLLOWUPS_MS) {
-    return { outcome: "skipped", reason: "followed_up_recently" };
+  if (await hasHumanReplied(state.threadId)) {
+    await logOutcome(supabase, prospect.id, prospect.contact_email!, "skipped", { reason: "human_owns_thread" });
+    return { outcome: "skipped", reason: "human_owns_thread" };
   }
 
   // Real incident: drafting off the subject line alone produced a generic
   // qualifying question to a lead who'd already offered a specific meeting
-  // time and asked detailed questions — the model had no way to know that.
-  // Pull the real recent conversation so the follow-up actually engages
-  // with what was said, not just the thread title.
+  // time and asked detailed questions. Pull the real recent conversation
+  // so the follow-up actually engages with what was said.
   const thread = await getFullThread(prospect.contact_email!);
   const recentContext = thread
     .slice(-6)
     .map((m) => `${m.fromLead ? "Them" : "Us"}: ${m.text.slice(0, 500)}`)
     .join("\n\n");
 
-  // Real incident: a lead who explicitly replied "not for me" kept getting
-  // nudged toward a call anyway — nothing here ever checked what was
-  // actually said before drafting the next follow-up. This mirrors the
-  // reactive pipeline's own classification gate, applied here for the
-  // first time.
+  // Piggyback on this fetch to keep the inbox's snippet cache fresh, same
+  // as the manual thread-open path — never a dedicated fetch pass of its own.
+  const last = thread[thread.length - 1];
+  if (last) {
+    await supabase.from("prospects").update({ last_message_preview: last.text.slice(0, 140), last_message_at: last.sentAt }).eq("id", prospect.id);
+  }
+
   if (recentContext) {
     const verdict = await askAI(
-      `Read this real conversation with a sales prospect. Has the prospect clearly rejected, declined, or asked to stop being contacted, at any point? Reply with exactly one word: REJECTED or OPEN.
+      `Read this real conversation with a sales prospect. Reply with exactly one word:
+REJECTED — they've clearly declined, said no, or asked to stop being contacted.
+NEEDS_HUMAN — they suggested specific meeting times instead of using the booking link, or gave a vague/ambiguous answer (e.g. "maybe", "let me check", a question you can't answer from the conversation alone) that a human should personally handle.
+OPEN — anything else, still a normal open conversation.
 
 Conversation:
 ${recentContext}`,
       { maxTokens: 40 },
     );
-    if ((verdict ?? "").trim().toUpperCase().startsWith("REJECTED")) {
-      await supabase.from("prospects").update({ stage: "not_fit" }).eq("id", prospect.id);
+    const v = (verdict ?? "").trim().toUpperCase();
+    if (v.startsWith("REJECTED")) {
+      await supabase.from("prospects").update({ stage: "lost" }).eq("id", prospect.id);
+      await logOutcome(supabase, prospect.id, prospect.contact_email!, "skipped", { reason: "prospect_rejected" });
       return { outcome: "skipped", reason: "prospect_rejected" };
+    }
+    if (v.startsWith("NEEDS_HUMAN")) {
+      await escalateToHuman(supabase, prospect, "Suggested specific times or gave a vague answer", recentContext.slice(-1000));
+      return { outcome: "skipped", reason: "escalated_to_human" };
     }
   }
 
+  // Not stale enough yet to warrant a nudge, and nothing in the
+  // conversation needed escalation — just wait.
+  if (lastMessageAge < STALE_AFTER_MS) {
+    return { outcome: "skipped", reason: "not_stale_yet" };
+  }
+
   const draft = await askAI(
-    `This prospect showed real interest earlier but has gone quiet since our last message. Write a short, natural follow-up that continues the conversation, it should NOT read like a new cold outreach or a generic "just following up." Reference something real from the conversation below if it helps, don't ask something they already answered.
+    `This prospect showed real interest earlier but has gone quiet since our last message. Write a short, natural follow-up that continues the conversation, it should NOT read like a new cold outreach or a generic "just following up." Reference something real from the conversation below if it helps, don't ask something they already answered. Do not be pushy and do not over-explain, keep it brief.
 Their name: ${prospect.contact_name || 'unknown, do not guess it or use a placeholder, skip the name or use "Hi there"'}
 Days since our last message: ${Math.round(lastMessageAge / 86400000)}
 
 Recent conversation (oldest first):
 ${recentContext || "(no prior messages found beyond the subject line)"}
 
-Every follow-up must end with a smooth, low-pressure nudge toward booking a call, not just a question left hanging, use the real booking link if one is configured, otherwise ask when a quick 15 minutes would work for them.
+End with a smooth, low-pressure nudge toward booking a call, not just a question left hanging, use the real booking link if one is configured, otherwise ask when a quick 15 minutes would work for them.
 
 Follow every rule in the guidelines below exactly. Output ONLY the email body text, nothing else, no subject line, no "CC:"/"To:"/"Subject:" lines, no signature block beyond a first-name sign-off.`,
-    { system: buildSystemPrompt(config, `You are writing FROM the mailbox ${state.eaccount}.`), maxTokens: 300 },
+    { system: buildSystemPrompt(config, `You are writing FROM the mailbox ${state.eaccount}.`), maxTokens: 220 },
   );
-  if (!draft) return { outcome: "no_draft" };
+  if (!draft) {
+    await logOutcome(supabase, prospect.id, prospect.contact_email!, "no_draft");
+    return { outcome: "no_draft" };
+  }
 
   const ok = await replyToEmail({
     eaccount: state.eaccount,
@@ -288,5 +264,6 @@ Follow every rule in the guidelines below exactly. Output ONLY the email body te
     html: toHtml(draft),
   });
 
+  await logOutcome(supabase, prospect.id, prospect.contact_email!, ok ? "sent" : "failed", { draft });
   return { outcome: ok ? "sent" : "failed", draft };
 }

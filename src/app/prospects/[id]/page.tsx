@@ -2,7 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { updateProspectStage, convertProspectToClient } from "../actions";
-import { PageHeader, Card, Field, Input, Select, Textarea, Button } from "@/components/ui";
+import { clearHumanReview } from "../../follow-ups/actions";
+import { PageHeader, Card, Field, Input, Select, Textarea, Button, Badge } from "@/components/ui";
 import AIFollowUpDraft from "./AIFollowUpDraft";
 import { displayCompanyName } from "@/lib/format";
 
@@ -12,10 +13,14 @@ const STAGES = [
   "call_booked",
   "call_completed",
   "follow_up",
+  "pending",
+  "proposal_sent",
   "agreement_sent",
+  "won",
   "signed",
   "no_show",
   "not_fit",
+  "lost",
 ];
 
 export default async function ProspectDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -54,6 +59,21 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
               </button>
             </Card>
           </form>
+        )}
+
+        {prospect.needs_human_review && (
+          <Card className="mb-6 flex items-center justify-between gap-3 border-warning/30 bg-warning-bg/40">
+            <div>
+              <Badge tone="warning">Needs a human reply</Badge>
+              <p className="mt-1.5 text-sm text-foreground">{prospect.human_review_reason ?? "The agent flagged this for you."}</p>
+              <p className="mt-0.5 text-xs text-muted">The agent will not reply or follow up on this prospect until you clear this.</p>
+            </div>
+            <form action={clearHumanReview.bind(null, prospect.id)}>
+              <Button variant="secondary" className="shrink-0 text-xs">
+                Mark Handled
+              </Button>
+            </form>
+          </Card>
         )}
 
         <AIFollowUpDraft prospectId={prospect.id} />

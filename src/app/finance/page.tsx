@@ -146,7 +146,7 @@ export default async function FinancePage() {
                         {opp?.prospect_name ?? "Unknown"} · {client?.name ?? "Unknown client"}
                       </p>
                       <span className="rr-fin-num text-sm text-muted">
-                        {money(Number(d.value))} · {d.status}
+                        {money(Number(d.value))} · <span className="capitalize">{d.status}</span>
                       </span>
                     </div>
 
@@ -172,7 +172,7 @@ export default async function FinancePage() {
                       {dealCollections.map((c) => (
                         <li key={c.id} className="flex items-center justify-between">
                           <span className="rr-fin-num text-muted">
-                            {money(Number(c.amount))} · {c.status}
+                            {money(Number(c.amount))} · <span className="capitalize">{c.status}</span>
                             {c.external_reference && ` · ${c.external_reference}`}
                           </span>
                           {c.status === "reported" && (

@@ -82,7 +82,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                 {c.logged_at ? (
                   <div className="text-sm">
                     <p className="text-foreground">
-                      Outcome: <span className="font-medium">{c.outcome.replace(/_/g, " ")}</span>
+                      Outcome: <span className="font-medium capitalize">{c.outcome.replace(/_/g, " ")}</span>
                     </p>
                     {c.notes && <p className="mt-1 text-muted">{c.notes}</p>}
                     {c.agreed_next_action && <p className="mt-1 text-muted">Next: {c.agreed_next_action}</p>}
