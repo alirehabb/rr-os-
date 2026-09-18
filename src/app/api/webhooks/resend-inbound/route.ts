@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { createServiceClient } from "@/lib/supabase/service";
+import { sendEmail } from "@/lib/email";
 
 // hiring.rehab-revenue.com has inbound email receiving enabled in Resend,
 // but until this route + webhook existed, nothing was subscribed to
@@ -67,16 +68,44 @@ export async function POST(req: Request) {
   const { name, email } = parseFrom(data.from);
   if (!email) return new Response("ok", { status: 200 });
 
-  const { data: existing } = await supabase.from("reps").select("id").eq("email", email).maybeSingle();
-  if (existing) return new Response("ok", { status: 200 });
-
   const bodyText = String(data.text ?? data.html ?? "").slice(0, 4000);
+  const { data: existing } = await supabase.from("reps").select("id, full_name, notes").eq("email", email).maybeSingle();
+
+  if (existing) {
+    // A reply from someone already in the pipeline (interview confirmation,
+    // a resume/recording follow-up, an update on their status). Land it on
+    // their card as a timestamped note rather than dropping it — the
+    // founder decides the actual status change, this just makes sure they
+    // see it happened.
+    const stamped = `[${new Date().toLocaleString()}] Replied: ${bodyText}`;
+    await supabase
+      .from("reps")
+      .update({ notes: existing.notes ? `${existing.notes}\n\n${stamped}` : stamped })
+      .eq("id", existing.id);
+
+    await sendEmail({
+      to: "ali@rehab-revenue.com",
+      subject: `${existing.full_name} replied`,
+      html: `<p><strong>${existing.full_name}</strong> (${email}) replied to a talent email.</p>
+<blockquote style="border-left:3px solid #ccc;margin:0;padding-left:12px;color:#444">${bodyText.replace(/\n/g, "<br/>")}</blockquote>
+<p>Added to their notes on the Talent card.</p>`,
+    });
+    return new Response("ok", { status: 200 });
+  }
+
   await supabase.from("reps").insert({
     full_name: name || email,
     email,
     capabilities: [],
     evidence_source: `Inbound application email (${data.subject ?? "no subject"})`,
     notes: bodyText || null,
+  });
+
+  await sendEmail({
+    to: "ali@rehab-revenue.com",
+    subject: `New application: ${name || email}`,
+    html: `<p>New talent application from <strong>${name || email}</strong> (${email}).</p>
+<blockquote style="border-left:3px solid #ccc;margin:0;padding-left:12px;color:#444">${bodyText.replace(/\n/g, "<br/>")}</blockquote>`,
   });
 
   return new Response("ok", { status: 200 });
