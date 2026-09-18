@@ -39,10 +39,10 @@ function text(prop: NotionProperty | undefined): string | null {
   return null;
 }
 
-export async function fetchNotionApplications(): Promise<NotionApplication[]> {
+export async function fetchNotionApplications(): Promise<{ applications: NotionApplication[]; error?: string }> {
   const apiKey = process.env.NOTION_API_KEY;
   const databaseId = process.env.NOTION_APPLICATIONS_DB_ID;
-  if (!apiKey || !databaseId) return [];
+  if (!apiKey || !databaseId) return { applications: [], error: "NOTION_API_KEY or NOTION_APPLICATIONS_DB_ID missing" };
 
   const applications: NotionApplication[] = [];
   let cursor: string | undefined;
@@ -57,7 +57,7 @@ export async function fetchNotionApplications(): Promise<NotionApplication[]> {
       },
       body: JSON.stringify({ page_size: 100, start_cursor: cursor }),
     });
-    if (!res.ok) break;
+    if (!res.ok) return { applications, error: `Notion API ${res.status}: ${await res.text()}` };
     const data = await res.json();
 
     for (const page of data.results ?? []) {
@@ -80,5 +80,5 @@ export async function fetchNotionApplications(): Promise<NotionApplication[]> {
     cursor = data.has_more ? data.next_cursor : undefined;
   } while (cursor);
 
-  return applications;
+  return { applications };
 }

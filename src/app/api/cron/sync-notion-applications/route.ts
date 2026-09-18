@@ -14,7 +14,8 @@ export async function GET(req: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const applications = await fetchNotionApplications();
+  const { applications, error } = await fetchNotionApplications();
+  if (error) return Response.json({ checked: 0, added: 0, error }, { status: 500 });
   if (applications.length === 0) return Response.json({ checked: 0, added: 0 });
 
   const supabase = createServiceClient();
