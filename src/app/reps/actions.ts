@@ -171,3 +171,21 @@ export async function sendCustomEmail(formData: FormData) {
   await sendCustomRepEmail(supabase, { repId, subject, body });
   revalidatePath(`/reps/${repId}`);
 }
+
+// Everything the founder needs for one rep, fetched in one shot when the
+// Talent card's slide-over opens — avoids a full page navigation just to
+// see trial/compensation/reconciliation history alongside the roster.
+export async function getRepFullRecord(repId: string) {
+  const supabase = await createClient();
+  const [{ data: assignments }, { data: clients }, { data: reconciliations }] = await Promise.all([
+    supabase.from("rep_assignments").select("*").eq("rep_id", repId).order("created_at", { ascending: false }),
+    supabase.from("clients").select("id, name").order("name"),
+    supabase.from("audit_log").select("*").eq("action", "reconcile_missing_commission").order("created_at", { ascending: false }).limit(20),
+  ]);
+
+  return {
+    assignments: assignments ?? [],
+    clients: clients ?? [],
+    reconciliations: (reconciliations ?? []).filter((r) => (r.after as { rep_id?: string } | null)?.rep_id === repId),
+  };
+}

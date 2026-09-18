@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { MapPin, ExternalLink } from "lucide-react";
-import { Badge, Button, Select, Avatar } from "@/components/ui";
+import { useEffect, useState } from "react";
+import { MapPin, Mail, Phone, Globe, Link2, FileText, Video, PlayCircle } from "lucide-react";
+import { Badge, Button, Select, Avatar, Textarea, EmptyState } from "@/components/ui";
 import { Sheet } from "@/components/sheet";
-import { updateRecruitingStatus } from "./actions";
+import { updateRecruitingStatus, linkRepProfile, assignRepToClient, startLiveTrial, reviewTrial, getRepFullRecord } from "./actions";
+import SetCompensationForm from "./SetCompensationForm";
+import CustomEmailComposer from "./[id]/CustomEmailComposer";
 
 type Rep = {
   id: string;
@@ -25,8 +26,21 @@ type Rep = {
   claimed_cash_collected: number | null;
   notes: string | null;
   community_waitlist: boolean;
+  profile_id: string | null;
   is_demo: boolean;
 };
+
+type Assignment = {
+  id: string;
+  client_id: string;
+  role: string;
+  status: string;
+  trial_started_at: string | null;
+  trial_review_result: string | null;
+  compensation_terms: unknown;
+};
+type Reconciliation = { id: string; target_id: string | null; created_at: string; after: unknown };
+type FullRecord = { assignments: Assignment[]; clients: { id: string; name: string }[]; reconciliations: Reconciliation[] };
 
 const STATUS_TONE = {
   application: "neutral",
@@ -140,18 +154,33 @@ export default function TalentBoard({
 }
 
 function RepProfile({ rep, onStatusChanged }: { rep: Rep; onStatusChanged: (status: string) => void }) {
+  const [record, setRecord] = useState<FullRecord | null>(null);
+  const firstName = rep.full_name.split(" ")[0];
+
+  useEffect(() => {
+    setRecord(null);
+    getRepFullRecord(rep.id).then(setRecord);
+  }, [rep.id]);
+
   return (
-    <div className="space-y-5 text-sm">
-      <div className="flex flex-wrap items-center gap-1.5">
-        {rep.capabilities.map((c) => (
-          <Badge key={c} tone="neutral">
-            {c}
-          </Badge>
-        ))}
-        <Badge tone={tone(rep.recruiting_status)}>{rep.recruiting_status.replace(/_/g, " ")}</Badge>
-        {rep.community_waitlist && <Badge tone="accent">On community waitlist</Badge>}
+    <div className="space-y-6 text-sm">
+      {/* Identity header */}
+      <div className="flex items-center gap-3">
+        <Avatar name={rep.full_name} size="md" />
+        <div className="min-w-0">
+          <p className="truncate text-base font-semibold text-foreground">{rep.full_name}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            {rep.capabilities.map((c) => (
+              <Badge key={c} tone="neutral">
+                {c}
+              </Badge>
+            ))}
+            {rep.community_waitlist && <Badge tone="accent">Community waitlist</Badge>}
+          </div>
+        </div>
       </div>
 
+      {/* Status changer */}
       <div className="rounded-2xl border border-border bg-surface-subtle/40 p-4">
         <form
           action={async (fd) => {
@@ -170,60 +199,208 @@ function RepProfile({ rep, onStatusChanged }: { rep: Rep; onStatusChanged: (stat
             ))}
           </Select>
           <Button type="submit" variant="secondary">
-            Update &amp; notify
+            Update
           </Button>
         </form>
-        <p className="mt-2 text-xs text-faint">
-          Changing status emails {rep.full_name.split(" ")[0]} automatically. Interview requests include the Calendly link, rejections
-          include the community waitlist offer.
-        </p>
+        <p className="mt-2 text-xs text-faint">Changing status emails {firstName} automatically with the matching template.</p>
       </div>
 
-      <dl className="space-y-2.5">
-        <Row label="Email" value={rep.email} href={`mailto:${rep.email}`} />
-        <Row label="Phone" value={rep.phone} href={rep.phone ? `tel:${rep.phone}` : undefined} />
-        <Row label="Location" value={rep.geography} />
-        <Row label="Timezone" value={rep.timezone} />
-        <Row label="LinkedIn" value={rep.linkedin_url} href={isUrl(rep.linkedin_url) ? rep.linkedin_url! : undefined} />
-        <Row label="Resume" value={rep.resume_url} href={isUrl(rep.resume_url) ? rep.resume_url! : undefined} />
-        <Row label="Intro Loom" value={rep.intro_loom_url} href={isUrl(rep.intro_loom_url) ? rep.intro_loom_url! : undefined} />
-        <Row label="Sales recording" value={rep.sales_recording_url} href={isUrl(rep.sales_recording_url) ? rep.sales_recording_url! : undefined} />
-        <Row label="Applied for" value={rep.offer_text} />
-        <Row label="Evidence / source" value={rep.evidence_source} />
-        <Row label="Claimed cash collected" value={rep.claimed_cash_collected ? `$${Number(rep.claimed_cash_collected).toLocaleString()}` : null} />
-        {rep.notes && (
-          <div>
-            <dt className="text-xs text-faint">Notes</dt>
-            <dd className="mt-0.5 whitespace-pre-wrap text-foreground">{rep.notes}</dd>
-          </div>
-        )}
-      </dl>
+      {/* Contact + quick facts, Apple-style stat grid */}
+      <div className="grid grid-cols-2 gap-2">
+        <Fact icon={Mail} label="Email" value={rep.email} href={`mailto:${rep.email}`} />
+        <Fact icon={Phone} label="Phone" value={rep.phone} href={rep.phone ? `tel:${rep.phone}` : undefined} />
+        <Fact icon={MapPin} label="Location" value={rep.geography} />
+        <Fact icon={Globe} label="Timezone" value={rep.timezone} />
+      </div>
 
-      <Link href={`/reps/${rep.id}`} className="inline-flex items-center gap-1 text-xs text-accent hover:underline">
-        Full record (trial, compensation, history) <ExternalLink size={11} />
-      </Link>
+      {(rep.linkedin_url || rep.resume_url || rep.intro_loom_url || rep.sales_recording_url) && (
+        <div className="flex flex-wrap gap-2">
+          <LinkPill icon={Link2} label="LinkedIn" href={rep.linkedin_url} />
+          <LinkPill icon={FileText} label="Resume" href={rep.resume_url} />
+          <LinkPill icon={Video} label="Intro Loom" href={rep.intro_loom_url} />
+          <LinkPill icon={PlayCircle} label="Sales recording" href={rep.sales_recording_url} />
+        </div>
+      )}
+
+      {(rep.offer_text || rep.evidence_source || rep.claimed_cash_collected || rep.notes) && (
+        <div className="space-y-2 rounded-2xl border border-border bg-surface p-4">
+          {rep.offer_text && <p className="text-foreground">{rep.offer_text}</p>}
+          {rep.evidence_source && <p className="text-xs text-muted">Evidence: {rep.evidence_source}</p>}
+          {rep.claimed_cash_collected != null && (
+            <p className="text-xs text-muted">Claimed cash collected: ${Number(rep.claimed_cash_collected).toLocaleString()} (unverified claim)</p>
+          )}
+          {rep.notes && <p className="whitespace-pre-wrap text-xs text-muted">{rep.notes}</p>}
+        </div>
+      )}
+
+      {rep.profile_id ? (
+        <p className="text-xs text-success">Platform login linked, can access their own workspace at /my.</p>
+      ) : (
+        <form action={linkRepProfile}>
+          <input type="hidden" name="rep_id" value={rep.id} />
+          <Button type="submit" variant="secondary" className="text-xs">
+            Link platform login
+          </Button>
+        </form>
+      )}
+
+      {/* Email composer, inline */}
+      <Section title={`Email ${firstName}`}>
+        <CustomEmailComposer repId={rep.id} firstName={firstName} />
+      </Section>
+
+      {/* Client assignments, trial, compensation */}
+      {record ? (
+        <Section title="Client assignments">
+          <form action={assignRepToClient} className="mb-3 flex gap-2 rounded-2xl border border-border bg-surface p-3">
+            <input type="hidden" name="rep_id" value={rep.id} />
+            <Select name="client_id" required className="flex-1 !py-1.5 text-xs">
+              {record.clients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+            <Select name="role" className="!py-1.5 text-xs">
+              <option value="closer">Closer</option>
+              <option value="setter">Setter</option>
+            </Select>
+            <Button type="submit" className="!px-3 !py-1.5 text-xs">
+              Assign
+            </Button>
+          </form>
+
+          <div className="space-y-2.5">
+            {record.assignments.map((a) => {
+              const clientName = record.clients.find((c) => c.id === a.client_id)?.name ?? "Unknown client";
+              return (
+                <div key={a.id} className="rounded-2xl border border-border bg-surface p-3">
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <p className="font-medium text-foreground">
+                      {clientName} · {a.role}
+                    </p>
+                    <Badge>{a.status}</Badge>
+                  </div>
+
+                  {a.status === "training" && (
+                    <form action={startLiveTrial}>
+                      <input type="hidden" name="assignment_id" value={a.id} />
+                      <input type="hidden" name="rep_id" value={rep.id} />
+                      <Button className="!px-3 !py-1 text-xs">Start 7-day live trial</Button>
+                    </form>
+                  )}
+
+                  {a.status === "trial" && (
+                    <div>
+                      <p className="mb-2 text-xs text-faint">
+                        Trial started {a.trial_started_at ? new Date(a.trial_started_at).toLocaleString() : "—"}
+                      </p>
+                      <form action={reviewTrial} className="space-y-2">
+                        <input type="hidden" name="assignment_id" value={a.id} />
+                        <input type="hidden" name="rep_id" value={rep.id} />
+                        <Textarea
+                          name="trial_review_result"
+                          placeholder="Human evaluation: call structure, objection handling, follow-up discipline, deals closed..."
+                          rows={2}
+                          className="text-xs"
+                        />
+                        <div className="flex gap-2">
+                          <button name="outcome" value="active" className="rounded-xl bg-success-bg px-3 py-1 text-xs font-medium text-success transition-transform active:scale-[0.97]">
+                            Confirm active
+                          </button>
+                          <button name="outcome" value="bench" className="rounded-xl bg-warning-bg px-3 py-1 text-xs font-medium text-warning transition-transform active:scale-[0.97]">
+                            Bench
+                          </button>
+                          <button name="outcome" value="removed" className="rounded-xl bg-danger-bg px-3 py-1 text-xs font-medium text-danger transition-transform active:scale-[0.97]">
+                            Remove
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  )}
+
+                  {a.trial_review_result && <p className="mt-2 text-xs text-faint">Review: {a.trial_review_result}</p>}
+
+                  {(a.status === "active" || a.status === "trial") && (
+                    <div className="mt-3 border-t border-border pt-3">
+                      {a.compensation_terms ? (
+                        <p className="text-xs text-muted">
+                          Compensation: {((a.compensation_terms as { rate: number }).rate * 100).toFixed(0)}% of{" "}
+                          {(a.compensation_terms as { basis: string }).basis === "rr_share" ? "RR's share" : "client cash collected"}
+                        </p>
+                      ) : (
+                        <SetCompensationForm assignmentId={a.id} repId={rep.id} />
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {record.assignments.length === 0 && <EmptyState title="Not assigned to any client yet." />}
+          </div>
+        </Section>
+      ) : (
+        <p className="text-xs text-faint">Loading assignments...</p>
+      )}
+
+      {record && record.reconciliations.length > 0 && (
+        <Section title="Commission reconciliation history">
+          <div className="space-y-1.5">
+            {record.reconciliations.map((r) => {
+              const after = r.after as { amount?: number; compensation_terms?: { rate: number; basis: string } } | null;
+              return (
+                <div key={r.id} className="rounded-xl border border-border bg-surface px-3 py-2 text-xs text-muted">
+                  Backfilled {after?.amount != null ? `$${Number(after.amount).toLocaleString()}` : "a"} commission on collection{" "}
+                  {r.target_id?.slice(0, 8)} at {after?.compensation_terms ? `${(after.compensation_terms.rate * 100).toFixed(0)}%` : "—"} —{" "}
+                  {new Date(r.created_at).toLocaleString()}
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+      )}
     </div>
   );
 }
 
-function isUrl(v: string | null) {
-  return !!v && /^https?:\/\//.test(v);
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="border-t border-border pt-5">
+      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-faint">{title}</p>
+      {children}
+    </div>
+  );
 }
 
-function Row({ label, value, href }: { label: string; value: string | null; href?: string }) {
+function Fact({ icon: Icon, label, value, href }: { icon: typeof Mail; label: string; value: string | null; href?: string }) {
   if (!value) return null;
-  return (
-    <div>
-      <dt className="text-xs text-faint">{label}</dt>
-      {href ? (
-        <dd className="mt-0.5 truncate text-accent hover:underline">
-          <a href={href} target="_blank" rel="noreferrer">
-            {value}
-          </a>
-        </dd>
-      ) : (
-        <dd className="mt-0.5 text-foreground">{value}</dd>
-      )}
+  const content = (
+    <div className="rounded-2xl border border-border bg-surface p-3 transition-colors hover:border-accent/40">
+      <p className="flex items-center gap-1 text-[11px] text-faint">
+        <Icon size={11} /> {label}
+      </p>
+      <p className="mt-0.5 truncate text-sm text-foreground">{value}</p>
     </div>
+  );
+  return href ? (
+    <a href={href} target="_blank" rel="noreferrer">
+      {content}
+    </a>
+  ) : (
+    content
+  );
+}
+
+function LinkPill({ icon: Icon, label, href }: { icon: typeof Mail; label: string; href: string | null }) {
+  if (!href || !/^https?:\/\//.test(href)) return null;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-accent/40 hover:bg-surface-subtle"
+    >
+      <Icon size={12} className="text-accent" /> {label}
+    </a>
   );
 }

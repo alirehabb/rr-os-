@@ -11,7 +11,7 @@ export default async function RepsPage() {
     supabase
       .from("reps")
       .select(
-        "id, full_name, email, phone, recruiting_status, capabilities, geography, timezone, linkedin_url, resume_url, intro_loom_url, sales_recording_url, offer_text, evidence_source, claimed_cash_collected, notes, community_waitlist, is_demo",
+        "id, full_name, email, phone, recruiting_status, capabilities, geography, timezone, linkedin_url, resume_url, intro_loom_url, sales_recording_url, offer_text, evidence_source, claimed_cash_collected, notes, community_waitlist, profile_id, is_demo",
       )
       .eq("is_benchmark", false)
       .eq("is_demo", demoMode)
