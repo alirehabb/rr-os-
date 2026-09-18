@@ -69,7 +69,12 @@ export async function POST(req: Request) {
   if (!email) return new Response("ok", { status: 200 });
 
   const bodyText = String(data.text ?? data.html ?? "").slice(0, 4000);
-  const { data: existing } = await supabase.from("reps").select("id, full_name, notes").eq("email", email).maybeSingle();
+  // Real incident: a stored email of "Rahmanabiddhk69@gmail.com" would
+  // never match an inbound "rahmanabiddhk69@gmail.com" under a plain
+  // case-sensitive eq() — email addresses are case-insensitive by
+  // convention and Gmail/Outlook clients don't preserve the case a form
+  // was originally filled out with.
+  const { data: existing } = await supabase.from("reps").select("id, full_name, notes").ilike("email", email).maybeSingle();
 
   if (existing) {
     // A reply from someone already in the pipeline (interview confirmation,
