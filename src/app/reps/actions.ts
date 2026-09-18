@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { Database } from "@/lib/supabase/database.types";
 import { sendRecruitingStatusEmail, sendCustomRepEmail } from "@/lib/repEmails";
+import { askAI } from "@/lib/ai";
 
 type RecruitingStatus = Database["public"]["Enums"]["recruiting_status"];
 
@@ -133,6 +134,29 @@ export async function reviewTrial(formData: FormData) {
     .eq("id", repId);
 
   revalidatePath(`/reps/${repId}`);
+}
+
+// AI draft for the custom-email box: the founder types what they want said,
+// this returns a subject/body pair for them to review and edit before
+// sendCustomEmail ever fires — same draft-then-send discipline as the AI
+// reply agent, just manually triggered here instead of automatic.
+export async function draftCustomEmail(repId: string, prompt: string): Promise<{ subject: string; body: string } | null> {
+  const supabase = await createClient();
+  const { data: rep } = await supabase.from("reps").select("full_name").eq("id", repId).single();
+  if (!rep) return null;
+
+  const draft = await askAI(
+    `Write a short, professional email to a sales rep/candidate named ${rep.full_name}.
+What it needs to say: ${prompt}
+
+Output exactly two lines to start: "Subject: <subject line>" then a blank line, then the email body. No placeholders, no signature beyond a first-name sign-off from Sarah.`,
+    { system: "You are Sarah, writing on behalf of Rehab Revenue's talent team. Professional, direct, human. No em dashes, no AI-sounding language.", maxTokens: 300 },
+  );
+  if (!draft) return null;
+
+  const match = draft.match(/^Subject:\s*(.+)\n+([\s\S]+)$/i);
+  if (!match) return { subject: `Re: ${rep.full_name}`, body: draft.trim() };
+  return { subject: match[1].trim(), body: match[2].trim() };
 }
 
 // Founder asking a rep for a document, more detail, or anything ad hoc,

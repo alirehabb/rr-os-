@@ -36,6 +36,21 @@ export function isWithinLocalMorning(timezone: string | null): boolean {
   }
 }
 
+// Weekend pause applies only to proactive nudges — a founder's own outreach
+// cadence, not a real person waiting on an answer. It never applies to the
+// reactive reply agent, and not to a catch-up reply either (see isCatchUp
+// in handleInstantlyFollowUp): if someone genuinely replied, that's a real
+// reply owed regardless of what day it is, same spirit as auto-reply
+// running every day.
+export function isWeekend(timezone: string | null): boolean {
+  try {
+    const day = new Intl.DateTimeFormat("en-US", { timeZone: timezone ?? FALLBACK_TIMEZONE, weekday: "short" }).format(new Date());
+    return day === "Sat" || day === "Sun";
+  } catch {
+    return false;
+  }
+}
+
 function toHtml(text: string): string {
   return text
     .split("\n\n")
@@ -246,6 +261,9 @@ ${recentContext}`,
   // never waits further).
   if (!isCatchUp && lastMessageAge < STALE_AFTER_MS) {
     return { outcome: "skipped", reason: "not_stale_yet" };
+  }
+  if (!isCatchUp && isWeekend(prospect.timezone)) {
+    return { outcome: "skipped", reason: "weekend_pause" };
   }
 
   const draft = await askAI(
