@@ -146,10 +146,10 @@ export async function draftCustomEmail(repId: string, prompt: string): Promise<{
   if (!rep) return null;
 
   const draft = await askAI(
-    `Write a short, professional email to a sales rep/candidate named ${rep.full_name}.
+    `Write the middle of a short, professional email to a sales rep/candidate named ${rep.full_name}.
 What it needs to say: ${prompt}
 
-Output exactly two lines to start: "Subject: <subject line>" then a blank line, then the email body. No placeholders, no signature beyond a first-name sign-off from Sarah.`,
+The greeting ("Hi ${rep.full_name.split(" ")[0]},") and the sign-off ("Sarah / Rehab Revenue") are added automatically outside this text — do NOT write your own greeting or sign-off, just the body content in between. Output exactly two lines to start: "Subject: <subject line>" then a blank line, then only that body content. No placeholders.`,
     { system: "You are Sarah, writing on behalf of Rehab Revenue's talent team. Professional, direct, human. No em dashes, no AI-sounding language.", maxTokens: 300 },
   );
   if (!draft) return null;
