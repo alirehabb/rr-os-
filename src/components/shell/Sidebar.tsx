@@ -110,7 +110,7 @@ export default function Sidebar({
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-sm font-bold text-accent-fg">
           R
         </div>
-        <span className="text-sm font-semibold tracking-tight text-foreground">Rehab Revenue OS</span>
+        <span className="rr-serif text-sm font-semibold tracking-tight text-foreground">Rehab Revenue OS</span>
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 pb-4">

@@ -34,7 +34,7 @@ export function PageHeader({
   return (
     <div className="mb-8 flex items-start justify-between gap-4 rr-fade-up">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
+        <h1 className="rr-serif text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
       </div>
       {action}
@@ -45,7 +45,7 @@ export function PageHeader({
 export function SectionTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
     <div className="mb-3 flex items-center justify-between">
-      <h2 className="text-base font-medium tracking-tight text-foreground">{children}</h2>
+      <h2 className="rr-serif text-base font-medium tracking-tight text-foreground">{children}</h2>
       {action}
     </div>
   );

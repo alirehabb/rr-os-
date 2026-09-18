@@ -33,13 +33,13 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm rr-fade-up">
-        <div className="mb-6 flex items-center justify-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-accent" />
-          <span className="text-sm font-semibold tracking-tight text-foreground">Rehab Revenue OS</span>
+        <div className="mb-8 text-center">
+          <p className="rr-serif text-2xl font-semibold tracking-tight text-foreground">Rehab Revenue</p>
+          <p className="mt-1.5 text-sm text-muted">Shaping the future of sales placement.</p>
         </div>
 
         <div className="rounded-2xl border border-border bg-surface p-8 shadow-sm shadow-black/[0.03]">
-          <h1 className="text-lg font-semibold text-foreground">Sign in</h1>
+          <h1 className="rr-serif text-lg font-semibold text-foreground">Sign in</h1>
           <p className="mt-1 text-sm text-muted">Enter your email and password to continue.</p>
 
           <form onSubmit={signIn} className="mt-6 space-y-3">

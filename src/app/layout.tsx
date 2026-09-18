@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Caveat } from "next/font/google";
+import { Geist, Geist_Mono, Caveat, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { createClient } from "@/lib/supabase/server";
 import AppShellClient from "@/components/shell/AppShellClient";
@@ -18,6 +18,12 @@ const caveat = Caveat({
   variable: "--font-signature",
   subsets: ["latin"],
   weight: ["500", "700"],
+});
+
+const playfair = Playfair_Display({
+  variable: "--font-serif",
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -109,7 +115,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   }
 
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} h-full antialiased`}>
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} ${playfair.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <AppShellClient
           isFounder={isFounder}

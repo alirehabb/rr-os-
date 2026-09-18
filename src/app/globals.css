@@ -1,49 +1,52 @@
 @import "tailwindcss";
 
+/* Rehab Revenue brand: deep navy with a warm gold accent, serif display type.
+   One identity regardless of OS light/dark preference — navy is the brand,
+   not a "dark mode" — so both blocks below carry the same palette. */
 :root {
-  --bg: #fafaf9;
-  --bg-elevated: #ffffff;
-  --bg-subtle: #f2f1ee;
-  --panel: rgba(255, 255, 255, 0.7);
-  --sidebar: #f2f1ee;
-  --border: #e7e5e2;
-  --border-soft: rgba(0, 0, 0, 0.06);
-  --text: #1c1b19;
-  --text-muted: #6b6963;
-  --text-faint: #a8a59d;
-  --accent: #d97757;
-  --accent-fg: #ffffff;
-  --success: #2f855a;
-  --success-bg: #ecf7f1;
-  --warning: #b7791f;
-  --warning-bg: #fdf6ec;
-  --danger: #c0392b;
-  --danger-bg: #fdeeec;
-  --focus-ring: #d97757;
-  --demo: #10b981;
+  --bg: #0a1330;
+  --bg-elevated: #101d42;
+  --bg-subtle: #0d1938;
+  --panel: rgba(16, 29, 66, 0.72);
+  --sidebar: #08112a;
+  --border: rgba(255, 255, 255, 0.09);
+  --border-soft: rgba(255, 255, 255, 0.06);
+  --text: #f4f1e8;
+  --text-muted: #a9b1cf;
+  --text-faint: #6d759a;
+  --accent: #c9a24b;
+  --accent-fg: #0a1330;
+  --success: #4ade80;
+  --success-bg: rgba(74, 222, 128, 0.12);
+  --warning: #eab86c;
+  --warning-bg: rgba(234, 184, 108, 0.12);
+  --danger: #ef7a6d;
+  --danger-bg: rgba(239, 122, 109, 0.12);
+  --focus-ring: #c9a24b;
+  --demo: #34d399;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0b0b0e;
-    --bg-elevated: #16161a;
-    --bg-subtle: #1c1c21;
-    --panel: rgba(24, 24, 28, 0.72);
-    --sidebar: #101013;
-    --border: #26262c;
+    --bg: #0a1330;
+    --bg-elevated: #101d42;
+    --bg-subtle: #0d1938;
+    --panel: rgba(16, 29, 66, 0.72);
+    --sidebar: #08112a;
+    --border: rgba(255, 255, 255, 0.09);
     --border-soft: rgba(255, 255, 255, 0.06);
-    --text: #f1f0ee;
-    --text-muted: #9a98a1;
-    --text-faint: #67656d;
-    --accent: #e08a67;
-    --accent-fg: #17161a;
+    --text: #f4f1e8;
+    --text-muted: #a9b1cf;
+    --text-faint: #6d759a;
+    --accent: #c9a24b;
+    --accent-fg: #0a1330;
     --success: #4ade80;
     --success-bg: rgba(74, 222, 128, 0.12);
     --warning: #eab86c;
     --warning-bg: rgba(234, 184, 108, 0.12);
     --danger: #ef7a6d;
     --danger-bg: rgba(239, 122, 109, 0.12);
-    --focus-ring: #e08a67;
+    --focus-ring: #c9a24b;
     --demo: #34d399;
   }
 }
@@ -70,11 +73,22 @@
   --color-demo: var(--demo);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-serif);
 }
 
 body {
-  background: var(--bg);
+  background:
+    radial-gradient(ellipse 1200px 700px at 15% -10%, rgba(201, 162, 75, 0.08), transparent 60%),
+    radial-gradient(ellipse 900px 600px at 100% 0%, rgba(255, 255, 255, 0.05), transparent 55%),
+    var(--bg);
+  background-attachment: fixed;
   color: var(--text);
+}
+
+/* Serif display face for page/section titles and the brand wordmark —
+   everything else (body copy, data, forms) stays on the sans UI face. */
+.rr-serif {
+  font-family: var(--font-serif), Georgia, serif;
 }
 
 * {
